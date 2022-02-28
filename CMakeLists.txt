@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20.0)
 project(of_security VERSION 1.0.1 DESCRIPTION "OpenFiles Security and Authentication")
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
+
 include_directories(
         ${of_core_SOURCE_DIR}/include
 	${of_smb_SOURCE_DIR}/include
@@ -38,6 +40,6 @@ set(SRCS
 	src/sha256.c
         )
 
-add_library(of_security OBJECT ${SRCS})
+add_library(of_security OBJECT ${SRCS} ${KSRCS})
 set_property(TARGET of_security PROPERTY POSITION_INDEPENDENT_CODE ON)
 

@@ -27,6 +27,7 @@
 /* 
  * GSSAPI/SPNEGO SASL plugin
  */
+#include "ofc/config.h"
 #include "ofc/types.h"
 #include "ofc/socket.h"
 #include "ofc/net.h"
@@ -77,7 +78,7 @@ static const gss_OID_desc gss_mech_ntlmssp_gss_oid =
 static const oid gss_mech_krb5_oid =
   { 9, (OFC_UCHAR *) "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02" } ;
 
-#if defined(OFC_PARAM_KERBEROS)
+#if defined(OFC_KERBEROS)
 static const OFC_UINT krb5_elements[] = 
   { 1, 2, 840, 113554, 1, 2, 2};
 
@@ -3692,7 +3693,7 @@ static OFC_INT spnego_initial(client_context_t *text,
 		      for (i = 0 ; i < token_init.mechTypes.len &&
 			     desired == OFC_NULL; i++)
 			{
-#if defined(OFC_PARAM_KERBEROS)
+#if defined(OFC_KERBEROS)
 			  if (ofc_strcmp (text->plug, "GSSAPI") == 0)
 			    {
 			      if ((token_init.mechTypes.val[i].length ==

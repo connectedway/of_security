@@ -56,6 +56,7 @@
 #include <netinet/in.h>
 #endif
 
+#include "ofc/config.h"
 #include "of_security/saslint.h"
 #include "of_security/sasl.h"
 #include "of_security/saslplug.h"

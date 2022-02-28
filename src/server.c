@@ -47,6 +47,7 @@
  */
 #define LIBSASL_EXPORTS
 
+#include "ofc/config.h"
 #include "ofc/libc.h"
 
 #include "of_security/sasl.h"

@@ -46,6 +46,7 @@
 /* SASL Headers */
 #define LIBSASL_EXPORTS
 
+#include "ofc/config.h"
 #include "of_security/sasl.h"
 #include "of_security/saslplug.h"
 #include "of_security/saslutil.h"

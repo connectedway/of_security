@@ -440,7 +440,7 @@ static sasl_canonuser_plug_t canonuser_internal_plugin = {
 	OFC_NULL
 };
 
-int of_securityinternal_canonuser_init
+int of_security_internal_canonuser_init
 (const sasl_utils_t *utils,
  int max_version,
  int *out_version,

@@ -361,8 +361,8 @@ const struct propval *of_security_prop_get(struct propctx *ctx)
  *  if a name requested here was never requested by a prop_request, then
  *  the name field of the associated vals entry will be set to NULL
  */
-int of_security_prop_get_names(struct propctx *ctx, const char **names,
-		       struct propval *vals) 
+int of_security_prop_getnames(struct propctx *ctx, const char **names,
+			      struct propval *vals) 
 {
     int found_names = 0;
     
