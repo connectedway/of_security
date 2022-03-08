@@ -14,6 +14,13 @@ if(APPLE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
 endif()
 
+if(NOT ANDROID)
+    set(KSRCS
+	src/kerberos.c
+	src/klist.c
+    )
+endif()
+
 set(SRCS
         src/auxprop.c
 	src/canonusr.c
@@ -24,8 +31,6 @@ set(SRCS
 	src/des_enc.c
 	src/ecb_enc.c
 	src/gssapi.c
-	src/kerberos.c
-	src/klist.c
 	src/md4_dgst.c
 	src/md4_one.c
 	src/md5.c
