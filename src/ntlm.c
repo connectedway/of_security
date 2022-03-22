@@ -1643,7 +1643,7 @@ static OFC_SIZET createBlob (const OFC_UCHAR *target_info,
   OFC_FILETIME filetime ;
   OFC_UINT64 ft ;
 
-#if defined(OFC_PARAM_NTLMV2_TARGET_TIMESTAMP)
+#if defined(OFC_NTLMV2_TARGET_TIMESTAMP)
   const OFC_UCHAR *ptarget = target_info ;
 
   /*
