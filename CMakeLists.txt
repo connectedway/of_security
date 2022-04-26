@@ -14,7 +14,7 @@ if(APPLE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
 endif()
 
-if(NOT ANDROID AND NOT UNIX)
+if((NOT ANDROID AND NOT UNIX) OR APPLE)
     set(KSRCS
 	src/kerberos.c
 	src/klist.c
