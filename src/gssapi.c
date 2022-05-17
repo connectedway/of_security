@@ -1322,7 +1322,7 @@ encode_NegTokenInit(OFC_UCHAR *p, OFC_SIZET len,
 	  retsize += l ;
 	  
 	  e = der_put_length_and_tag(p, len, retsize, ASN1_C_CONTEXT, 
-				     CONS, 3, &l);
+				     CONS, 4, &l);
 	  if (e != SASL_OK)
 	    result = e ;
 	  else
@@ -3232,8 +3232,9 @@ static OFC_INT spnego_server_init(server_context_t *text,
 
   if (result == SASL_OK)
     {
+#if 0
       token_init.negHint = ofc_strdup ("not_defined_in_RFC4178@please_ignore") ;
-
+#endif
       buf_size = 1024;
       buf = ofc_malloc(buf_size);
 
