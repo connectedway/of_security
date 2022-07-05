@@ -7,6 +7,7 @@ include_directories(
         ${of_core_SOURCE_DIR}/include
 	${of_smb_SOURCE_DIR}/include
 	${of_smb_BINARY_DIR}
+        ${KRB5_INCLUDE_PATH}
 	include
 )
 
@@ -14,12 +15,10 @@ if(APPLE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
 endif()
 
-if((NOT ANDROID AND NOT UNIX) OR APPLE)
-    set(KSRCS
-	src/kerberos.c
-	src/klist.c
-    )
-endif()
+set(KSRCS
+    src/kerberos.c
+    src/klist.c
+)
 
 set(SRCS
         src/auxprop.c
