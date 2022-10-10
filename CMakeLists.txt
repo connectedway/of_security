@@ -44,6 +44,6 @@ set(SRCS
 	src/sha256.c
         )
 
-add_library(of_security OBJECT ${SRCS} ${KSRCS})
+add_library(of_security OBJECT ${SRCS} )
 set_property(TARGET of_security PROPERTY POSITION_INDEPENDENT_CODE ON)
 
