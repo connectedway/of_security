@@ -4,11 +4,11 @@ project(of_security VERSION 1.0.1 DESCRIPTION "OpenFiles Security and Authentica
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
 
 include_directories(
+        ${of_security_SOURCE_DIR}/include
         ${of_core_SOURCE_DIR}/include
 	${of_smb_SOURCE_DIR}/include
 	${of_smb_BINARY_DIR}
         ${KRB5_INCLUDE_PATH}
-	include
 )
 
 if(APPLE)
@@ -19,6 +19,26 @@ set(KSRCS
     src/kerberos.c
     src/klist.c
 )
+
+if(OF_OPENSSL)
+  set(CSRCS
+    src/openssl_smb2.c
+    )
+  find_package(OpenSSL REQUIRED)
+  if (OPENSSL_FOUND)
+    include_directories(${OPENSSL_INCLUDE_DIR})
+  endif()
+endif()
+
+if (OF_GNUTLS)
+  set(CSRCS
+    src/gnutls_smb2.c
+    )
+  find_package(GnuTLS REQUIRED)
+  if (GNUTLS_FOUND)
+    include_directories(${GNUTLS_INCLUDE_DIR})
+  endif()
+endif()
 
 set(SRCS
         src/auxprop.c
@@ -42,8 +62,9 @@ set(SRCS
 	src/set_key.c
 	src/seterror.c
 	src/sha256.c
+        src/security_smb2.c
         )
 
-add_library(of_security OBJECT ${SRCS} ${KSRCS})
+add_library(of_security OBJECT ${SRCS} ${KSRCS} ${CSRCS})
 set_property(TARGET of_security PROPERTY POSITION_INDEPENDENT_CODE ON)
 
