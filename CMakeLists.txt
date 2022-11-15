@@ -20,8 +20,9 @@ set(KSRCS
     src/klist.c
 )
 
+unset(CSRCS)
 if(OF_OPENSSL)
-  set(CSRCS
+  list(APPEND CSRCS
     src/openssl_smb2.c
     )
   find_package(OpenSSL REQUIRED)
@@ -30,8 +31,15 @@ if(OF_OPENSSL)
   endif()
 endif()
 
+if(OF_MBEDTLS)
+  list(APPEND CSRCS
+    src/mbedtls_smb2.c
+    )
+  include_directories(${MBEDTLS_INCLUDE_DIR})
+endif()
+
 if (OF_GNUTLS)
-  set(CSRCS
+  list(APPEND CSRCS
     src/gnutls_smb2.c
     )
   find_package(GnuTLS REQUIRED)

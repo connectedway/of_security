@@ -101,6 +101,9 @@ OFC_VOID openssl_smb2_sign(struct of_security_signing_ctx *signing_ctx,
                  ptext, ptext_size);
   EVP_MAC_final(evp_signing_ctx,
                 digest, &evp_digest_len, evp_digest_len);
+#if 0
+  of_security_print_key("openssl sign: ", digest);
+#endif
 }
 
 OFC_VOID
