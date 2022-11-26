@@ -42,6 +42,27 @@ struct of_security_signing_ctx *smb2_signing_ctx(OFC_UCHAR *session_key,
 #endif
 }
 
+OFC_VOID smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
+                          OFC_INT num_elem,
+                          OFC_UINT8 **ptext_vec,
+                          OFC_SIZET *ptext_size_vec,
+                          OFC_UINT8 *digest, OFC_SIZET digest_len)
+{
+#if defined(OF_MBEDTLS)
+  mbedtls_smb2_sign_vector(signing_ctx,
+                           num_elem, ptext_vec, ptext_size_vec,
+                           digest, digest_len);
+#elif defined(OF_OPENSSL)
+  openssl_smb2_sign_vector(signing_ctx,
+                           num_elem, ptext_vec, ptext_size_vec,
+                           digest, digest_len);
+#elif defined(OF_GNUTLS)
+  gnutls_smb2_sign_vector(signing_ctx,
+                          num_elem, ptext_vec, ptext_size_vec,
+                          digest, digest_len);
+#endif
+}
+
 OFC_VOID smb2_sign(struct of_security_signing_ctx *signing_ctx,
                    OFC_UINT8 *ptext,
                    OFC_SIZET ptext_size,

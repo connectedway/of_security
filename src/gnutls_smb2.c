@@ -73,6 +73,29 @@ gnutls_smb2_signing_ctx(OFC_UCHAR *session_key,
   return (signing_ctx);
 }
 
+OFC_VOID
+gnutls_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
+                        OFC_INT num_elem,
+                         OFC_UINT8 **ptext_vec,
+                         OFC_SIZET *ptext_size_vec,
+                         OFC_UINT8 *digest, OFC_SIZET digest_len)
+{
+  gnutls_hmac_hd_t hmac_hnd = signing_ctx->impl_signing_ctx;
+  OFC_UINT8 mac[gnutls_hash_get_len(GNUTLS_MAC_AES_CMAC_128)];
+  int i;
+
+  for (i = 0 ; i < num_elem; i++)
+    {
+      gnutls_hmac(hmac_hnd,
+                  ptext_vec[i], ptext_size_vec[i]);
+    }
+  gnutls_hmac_output(hmac_hnd, mac);
+#if 0
+  smb_client_session_print_key("gnutls sign: ", mac);
+#endif
+  ofc_memcpy(digest, mac, digest_len);
+}
+
 OFC_VOID gnutls_smb2_sign(struct of_security_signing_ctx *signing_ctx,
                            OFC_UINT8 *ptext,
                            OFC_SIZET ptext_size,

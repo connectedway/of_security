@@ -29,6 +29,12 @@ extern "C"
                      OFC_SIZET ptext_size,
                      OFC_UINT8 *digest, OFC_SIZET digest_len);
 
+  OFC_VOID smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
+                            OFC_INT num_elem,
+                            OFC_UINT8 **ptext_vec,
+                            OFC_SIZET *ptext_size_vec,
+                            OFC_UINT8 *digest, OFC_SIZET digest_len);
+
   OFC_VOID smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx);
 
   struct of_security_cipher_ctx *

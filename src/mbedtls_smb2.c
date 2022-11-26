@@ -91,6 +91,40 @@ mbedtls_smb2_signing_ctx(OFC_UCHAR *session_key,
   return (signing_ctx);
 }
 
+OFC_VOID
+mbedtls_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
+                         OFC_INT num_elem,
+                         OFC_UINT8 **ptext_vec,
+                         OFC_SIZET *ptext_size_vec,
+                         OFC_UINT8 *digest, OFC_SIZET digest_len)
+{
+  mbedtls_cipher_context_t *mbedtls_cipher_ctx =
+    signing_ctx->impl_signing_ctx;
+  OFC_UINT8 mac[16];
+  int rc;
+  int i;
+
+  rc = mbedtls_cipher_cmac_reset(mbedtls_cipher_ctx);
+  if (rc != 0)
+    ofc_printf(mbedtls_high_level_strerr(rc));
+
+  for (i = 0 ; i < num_elem && rc == 0; i++)
+    {
+      rc = mbedtls_cipher_cmac_update(mbedtls_cipher_ctx,
+                                      ptext_vec[i], ptext_size_vec[i]);
+    }
+
+  if (rc != 0)
+    ofc_printf(mbedtls_high_level_strerr(rc));
+  rc = mbedtls_cipher_cmac_finish(mbedtls_cipher_ctx, mac);
+  if (rc != 0)
+    ofc_printf(mbedtls_high_level_strerr(rc));
+#if 0
+  of_security_print_key("mbedtls sign: ", mac);
+#endif
+  ofc_memcpy(digest, mac, digest_len);
+}
+
 OFC_VOID mbedtls_smb2_sign(struct of_security_signing_ctx *signing_ctx,
                            OFC_UINT8 *ptext,
                            OFC_SIZET ptext_size,

@@ -85,6 +85,33 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   return (signing_ctx);
 }
 
+OFC_VOID
+openssl_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
+                         OFC_INT num_elem,
+                         OFC_UINT8 **ptext_vec,
+                         OFC_SIZET *ptext_size_vec,
+                         OFC_UINT8 *digest, OFC_SIZET digest_len)
+{
+  EVP_MAC_CTX *evp_signing_ctx = signing_ctx->impl_signing_ctx;
+  size_t evp_digest_len;
+  int i;
+
+  evp_digest_len = digest_len;
+
+  EVP_MAC_init(evp_signing_ctx,
+               signing_ctx->key, signing_ctx->keylen, NULL);
+  for (i = 0 ; i < num_elem; i++)
+    {
+      EVP_MAC_update(evp_signing_ctx, 
+                     ptext_vec[i], ptext_size_vec[i]);
+    }
+  EVP_MAC_final(evp_signing_ctx,
+                digest, &evp_digest_len, evp_digest_len);
+#if 0
+  of_security_print_key("openssl sign: ", digest);
+#endif
+}
+
 OFC_VOID openssl_smb2_sign(struct of_security_signing_ctx *signing_ctx,
                            OFC_UINT8 *ptext,
                            OFC_SIZET ptext_size,

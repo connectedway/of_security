@@ -12,6 +12,13 @@ extern "C"
   openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
                            OFC_SIZET session_key_len);
 
+  OFC_VOID
+  openssl_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
+                           OFC_INT num_elem,
+                           OFC_UINT8 **ptext_vec,
+                           OFC_SIZET *ptext_size_vec,
+                           OFC_UINT8 *digest, OFC_SIZET digest_len);
+
   OFC_VOID openssl_smb2_sign(struct of_security_signing_ctx *signing_ctx,
                              OFC_UINT8 *ptext,
                              OFC_SIZET ptext_size,
