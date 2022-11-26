@@ -1379,8 +1379,7 @@ static void ntlm_server_mech_dispose(void *conn_context,
 }
 
 static int ntlm_server_mech_key(void *conn_context,
-				unsigned char recv_key[NTLM_SESSKEY_LENGTH],
-				unsigned char send_key[NTLM_SESSKEY_LENGTH])
+				unsigned char session_key[NTLM_SESSKEY_LENGTH])
 {
     server_context_t *text = (server_context_t *) conn_context;
 
@@ -1388,13 +1387,11 @@ static int ntlm_server_mech_key(void *conn_context,
 
     if (text->credentials != OFC_NULL)
       {
-	ofc_memcpy (recv_key, text->credentials->user_session_key, 
+	ofc_memcpy (session_key, text->credentials->user_session_key, 
 		     NTLM_SESSKEY_LENGTH) ;
-	ofc_memcpy (send_key, text->credentials->user_session_key,
-		   NTLM_SESSKEY_LENGTH) ;
       }
     else
-      ofc_memset (send_key, '\0', NTLM_SESSKEY_LENGTH) ;
+      ofc_memset (session_key, '\0', NTLM_SESSKEY_LENGTH) ;
 
     return (SASL_OK) ;
 }
@@ -2298,8 +2295,7 @@ static void ntlm_client_mech_dispose(void *conn_context,
 }
 
 static int ntlm_client_mech_key(void *conn_context,
-				unsigned char recv_key[NTLM_SESSKEY_LENGTH],
-				unsigned char send_key[NTLM_SESSKEY_LENGTH])
+				unsigned char session_key[NTLM_SESSKEY_LENGTH])
 {
     client_context_t *text = (client_context_t *) conn_context;
 
@@ -2308,13 +2304,11 @@ static int ntlm_client_mech_key(void *conn_context,
 
     if (text->credentials != OFC_NULL)
       {
-	ofc_memcpy (recv_key, text->credentials->user_session_key, 
-		     NTLM_SESSKEY_LENGTH) ;
-	ofc_memcpy (send_key, text->credentials->user_session_key,
-		     NTLM_SESSKEY_LENGTH) ;
+	ofc_memcpy (session_key, text->credentials->user_session_key, 
+                    NTLM_SESSKEY_LENGTH) ;
       }
     else
-      ofc_memset (send_key, '\0', NTLM_SESSKEY_LENGTH) ;
+      ofc_memset (session_key, '\0', NTLM_SESSKEY_LENGTH) ;
 
     return (SASL_OK) ;
 }

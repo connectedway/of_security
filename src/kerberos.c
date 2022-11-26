@@ -2338,8 +2338,7 @@ static int gssapi_client_mech_name(void *conn_context,
 }
 
 static int gssapi_client_mech_key(void *conn_context,
-				  unsigned char session_key[NTLM_SESSKEY_LENGTH],
-				  unsigned char send_key[NTLM_SESSKEY_LENGTH])
+				  unsigned char session_key[NTLM_SESSKEY_LENGTH])
 {
   OM_uint32 maj_stat = 0, min_stat = 0;
   gss_buffer_set_t set = GSS_C_NO_BUFFER_SET;
@@ -2362,7 +2361,6 @@ static int gssapi_client_mech_key(void *conn_context,
 
 
   ofc_memcpy (session_key, set->elements[0].value, OFC_MIN(set->elements[0].length, NTLM_SESSKEY_LENGTH)) ;
-  ofc_memcpy (send_key, set->elements[0].value, OFC_MIN(set->elements[0].length, NTLM_SESSKEY_LENGTH)) ;
 
   maj_stat = gss_release_buffer_set(&min_stat, &set);
   return SASL_OK;

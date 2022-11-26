@@ -423,8 +423,7 @@ typedef struct sasl_client_plug {
 
     /* for additions which don't require a version upgrade; set to 0 */
     int (*mech_session_key)(void *conn_context, 
-			    unsigned char session_key[MD5_DIGEST_LENGTH],
-			    unsigned char send_key[MD5_DIGEST_LENGTH]);
+			    unsigned char session_key[MD5_DIGEST_LENGTH]);
     int (*mech_target_name)(void *conn_context, 
 			    OFC_TCHAR *name,
 			    size_t name_len);
@@ -771,8 +770,7 @@ typedef struct sasl_server_plug {
 
     /* for additions which don't require a version upgrade; set to 0 */
     int (*mech_session_key)(void *conn_context, 
-			    unsigned char session_key[MD5_DIGEST_LENGTH],
-			    unsigned char send_key[MD5_DIGEST_LENGTH]);
+			    unsigned char session_key[MD5_DIGEST_LENGTH]);
 } sasl_server_plug_t;
 
 #define SASL_SERVER_PLUG_VERSION 4

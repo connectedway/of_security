@@ -3531,9 +3531,9 @@ static void gssapi_server_mech_dispose(void *conn_context,
     utils->free(text);
 }
 
-static int gssapi_server_mech_key(void *conn_context,
-				  unsigned char recv_key[NTLM_SESSKEY_LENGTH],
-				  unsigned char send_key[NTLM_SESSKEY_LENGTH])
+static int
+gssapi_server_mech_key(void *conn_context,
+                       unsigned char session_key[NTLM_SESSKEY_LENGTH])
 {
   server_context_t *text = (server_context_t *) conn_context;
   int ret ;
@@ -3541,7 +3541,7 @@ static int gssapi_server_mech_key(void *conn_context,
   ret = SASL_FAIL ;
   if (text)
     {
-      if (of_security_server_key(text->pconn, recv_key, send_key) == SASL_OK)
+      if (of_security_server_key(text->pconn, session_key) == SASL_OK)
 	{
 	  ret = OFC_TRUE ;
 	}
@@ -4281,8 +4281,7 @@ static void gssapi_client_mech_dispose(void *conn_context,
 }
 
 static int gssapi_client_mech_key(void *conn_context,
-				  unsigned char session_key[NTLM_SESSKEY_LENGTH],
-				  unsigned char send_key[NTLM_SESSKEY_LENGTH])
+				  unsigned char session_key[NTLM_SESSKEY_LENGTH])
 {
   client_context_t *text = (client_context_t *) conn_context;
   int ret ;
@@ -4290,7 +4289,7 @@ static int gssapi_client_mech_key(void *conn_context,
   ret = SASL_FAIL ;
   if (text)
     {
-      if (of_security_client_key(text->pconn, session_key, send_key) == SASL_OK)
+      if (of_security_client_key(text->pconn, session_key) == SASL_OK)
 	{
 	  ret = OFC_TRUE ;
 	}

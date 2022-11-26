@@ -978,9 +978,9 @@ LIBSASL_API int of_security_client_step(sasl_conn_t *conn,
 LIBSASL_API int of_security_target_name(sasl_conn_t *conn,
 				      OFC_TCHAR *name,
 				      size_t name_len) ;
-LIBSASL_API int of_security_client_key(sasl_conn_t *conn,
-				     unsigned char session_key[SASL_KEY_LENGTH],
-				     unsigned char send_key[SASL_KEY_LENGTH]) ;
+LIBSASL_API int
+of_security_client_key(sasl_conn_t *conn,
+                       unsigned char session_key[SASL_KEY_LENGTH]);
 
 LIBSASL_API int of_security_mech_list_mic(sasl_conn_t *conn,
 					const OFC_UCHAR *mechlist, 
@@ -1120,9 +1120,9 @@ LIBSASL_API int of_security_server_step(sasl_conn_t *conn,
 				 unsigned clientinlen,
 				 const char **serverout,
 				 unsigned *serveroutlen);
-LIBSASL_API int of_security_server_key(sasl_conn_t *conn,
-				     unsigned char session_key[SASL_KEY_LENGTH],
-				     unsigned char send_key[SASL_KEY_LENGTH]) ;
+LIBSASL_API int
+of_security_server_key(sasl_conn_t *conn,
+                       unsigned char session_key[SASL_KEY_LENGTH]);
 
 LIBSASL_API const char *of_security_server_get_user(sasl_conn_t *pconn);
 

@@ -1020,8 +1020,7 @@ int of_security_target_name(sasl_conn_t *conn,
 }
 
 int of_security_client_key(sasl_conn_t *conn,
-			 unsigned char session_key[SASL_KEY_LENGTH],
-			 unsigned char send_key[SASL_KEY_LENGTH])
+                           unsigned char session_key[SASL_KEY_LENGTH])
 {
   sasl_client_conn_t *c_conn= (sasl_client_conn_t *) conn;
   int result;
@@ -1032,8 +1031,7 @@ int of_security_client_key(sasl_conn_t *conn,
   /* obtain the key */
   if (c_conn->mech->m.plug->mech_session_key != NULL)
     result = c_conn->mech->m.plug->mech_session_key(conn->context,
-						    session_key,
-						    send_key) ;
+						    session_key);
   else
     result = SASL_FAIL ;
 
