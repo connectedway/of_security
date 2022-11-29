@@ -119,6 +119,32 @@ OFC_VOID smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
 #endif
 }
 
+OFC_VOID smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
+                             OFC_UCHAR *iv, OFC_SIZET iv_size,
+                             OFC_UINT8 *aead, OFC_SIZET aead_size,
+                             OFC_SIZET tag_size,
+                             OFC_INT num_elem,
+                             OFC_UINT8 **addr, OFC_SIZET *len,
+                             OFC_UINT8 *ctext, OFC_SIZET ctext_size)
+{
+#if defined(OF_MBEDTLS)
+  mbedtls_smb2_encrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                              tag_size,
+                              num_elem, addr, len,
+                              ctext, ctext_size);
+#elif defined(OF_OPENSSL)
+  openssl_smb2_encrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                              tag_size,
+                              num_elem, addr, len,
+                              ctext, ctext_size);
+#elif defined(OF_GNUTLS)
+  gnutls_smb2_encrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                             tag_size,
+                             num_elem, addr, len,
+                             ctext, ctext_size);
+#endif
+}
+
 OFC_VOID smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 {
 #if defined(OF_MBEDTLS)
@@ -158,6 +184,32 @@ OFC_VOID smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
 #elif defined(OF_GNUTLS)
   gnutls_smb2_decrypt(cipher_ctx, iv, iv_size, aead, aead_size, tag_size,
                       ctext, ctext_size, ptext, ptext_size);
+#endif
+}
+  
+OFC_VOID smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
+                             OFC_UCHAR *iv, OFC_SIZET iv_size,
+                             OFC_UINT8 *aead, OFC_SIZET aead_size,
+                             OFC_UINT8 *tag, OFC_SIZET tag_size,
+                             OFC_INT num_elem,
+                             OFC_UCHAR **addr, OFC_SIZET *len,
+                             OFC_UINT8 *ptext, OFC_SIZET ptext_size)
+{
+#if defined(OF_MBEDTLS)
+  mbedtls_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                              tag, tag_size,
+                              num_elem, addr, len,
+                              ptext, ptext_size);
+#elif defined(OF_OPENSSL)
+  openssl_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                              tag, tag_size,
+                              num_elem, addr, len,
+                              ptext, ptext_size);
+#elif defined(OF_GNUTLS)
+  gnutls_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                             tag, tag_size,
+                             num_elem, addr, len,
+                             ptext, ptext_size);
 #endif
 }
   
