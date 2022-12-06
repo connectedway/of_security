@@ -369,7 +369,7 @@ mbedtls_smb2_decryption_ctx(OFC_UCHAR *session_key,
   return (cipher_ctx);
 }
 
-OFC_VOID mbedtls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
+OFC_BOOL mbedtls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                               OFC_UCHAR *iv, OFC_SIZET iv_size,
                               OFC_UINT8 *aead, OFC_SIZET aead_size,
                               OFC_SIZET tag_size,
@@ -378,23 +378,25 @@ OFC_VOID mbedtls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
 {
   mbedtls_ccm_context *mbedtls_ccm_ctx;
   size_t outlen = 0;
-  int rc;
   OFC_UINT8 tag[16];
   size_t inlen = ctext_size - tag_size;
+  OFC_BOOL ret = OFC_TRUE;
 
   mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
 
-  rc = mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_DECRYPT, iv, iv_size);
-  rc = mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
-  rc = mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
+  mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_DECRYPT, iv, iv_size);
+  mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
+  mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
 
-  rc = mbedtls_ccm_update(mbedtls_ccm_ctx, ctext, inlen,
-                          ptext+outlen, ptext_size, &outlen);
-  rc = mbedtls_ccm_finish(mbedtls_ccm_ctx, tag, tag_size);
-  rc = ofc_memcmp(ctext+inlen, tag, 16);
+  mbedtls_ccm_update(mbedtls_ccm_ctx, ctext, inlen,
+                     ptext+outlen, ptext_size, &outlen);
+  mbedtls_ccm_finish(mbedtls_ccm_ctx, tag, tag_size);
+  if (ofc_memcmp(ctext+inlen, tag, 16) != 0)
+    ret = OFC_FALSE;
+  return (ret);
 }
   
-OFC_VOID
+OFC_BOOL
 mbedtls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                             OFC_UCHAR *iv, OFC_SIZET iv_size,
                             OFC_UINT8 *aead, OFC_SIZET aead_size,
@@ -407,6 +409,7 @@ mbedtls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
   size_t inlen = 0;
   size_t outlen = 0;
   OFC_UINT8 tag_check[16];
+  OFC_BOOL ret = OFC_TRUE;
 
   mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
 
@@ -428,7 +431,9 @@ mbedtls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                          ptext+outlen, len[i], &outlen);
     }
   mbedtls_ccm_finish(mbedtls_ccm_ctx, tag_check, tag_size);
-  int rc = ofc_memcmp(tag_check, tag, 16);
+  if (ofc_memcmp(tag_check, tag, 16) != 0)
+    ret = OFC_FALSE;
+  return (ret);
 }
 
 OFC_VOID

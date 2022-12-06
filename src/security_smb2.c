@@ -168,26 +168,31 @@ struct of_security_cipher_ctx *smb2_decryption_ctx(OFC_UCHAR *session_key,
 #endif
 }
 
-OFC_VOID smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
+OFC_BOOL smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                       OFC_UCHAR *iv, OFC_SIZET iv_size,
                       OFC_UINT8 *aead, OFC_SIZET aead_size,
                       OFC_SIZET tag_size,
                       OFC_UINT8 *ctext, OFC_SIZET ctext_size,
                       OFC_UINT8 *ptext, OFC_SIZET ptext_size)
 {
+  OFC_BOOL ret;
 #if defined(OF_MBEDTLS)
-  mbedtls_smb2_decrypt(cipher_ctx, iv, iv_size, aead, aead_size, tag_size,
-                       ctext, ctext_size, ptext, ptext_size);
+  ret = mbedtls_smb2_decrypt(cipher_ctx, iv, iv_size, aead, aead_size,
+                             tag_size,
+                             ctext, ctext_size, ptext, ptext_size);
 #elif defined(OF_OPENSSL)
-  openssl_smb2_decrypt(cipher_ctx, iv, iv_size, aead, aead_size, tag_size,
-                       ctext, ctext_size, ptext, ptext_size);
+  ret = openssl_smb2_decrypt(cipher_ctx, iv, iv_size, aead, aead_size,
+                             tag_size,
+                             ctext, ctext_size, ptext, ptext_size);
 #elif defined(OF_GNUTLS)
-  gnutls_smb2_decrypt(cipher_ctx, iv, iv_size, aead, aead_size, tag_size,
-                      ctext, ctext_size, ptext, ptext_size);
+  ret = gnutls_smb2_decrypt(cipher_ctx, iv, iv_size, aead, aead_size,
+                            tag_size,
+                            ctext, ctext_size, ptext, ptext_size);
 #endif
+  return (ret);
 }
   
-OFC_VOID smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
+OFC_BOOL smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                              OFC_UCHAR *iv, OFC_SIZET iv_size,
                              OFC_UINT8 *aead, OFC_SIZET aead_size,
                              OFC_UINT8 *tag, OFC_SIZET tag_size,
@@ -195,22 +200,24 @@ OFC_VOID smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                              OFC_UCHAR **addr, OFC_SIZET *len,
                              OFC_UINT8 *ptext, OFC_SIZET ptext_size)
 {
+  OFC_BOOL ret;
 #if defined(OF_MBEDTLS)
-  mbedtls_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
-                              tag, tag_size,
-                              num_elem, addr, len,
-                              ptext, ptext_size);
+  ret = mbedtls_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                                    tag, tag_size,
+                                    num_elem, addr, len,
+                                    ptext, ptext_size);
 #elif defined(OF_OPENSSL)
-  openssl_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
-                              tag, tag_size,
-                              num_elem, addr, len,
-                              ptext, ptext_size);
+  ret = openssl_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                                    tag, tag_size,
+                                    num_elem, addr, len,
+                                    ptext, ptext_size);
 #elif defined(OF_GNUTLS)
-  gnutls_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
-                             tag, tag_size,
-                             num_elem, addr, len,
-                             ptext, ptext_size);
+  ret = gnutls_smb2_decrypt_vector(cipher_ctx, iv, iv_size, aead, aead_size,
+                                   tag, tag_size,
+                                   num_elem, addr, len,
+                                   ptext, ptext_size);
 #endif
+  return (ret);
 }
   
 OFC_VOID smb2_decryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)

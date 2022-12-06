@@ -54,14 +54,14 @@ extern "C"
   mbedtls_smb2_decryption_ctx(OFC_UCHAR *session_key,
                              OFC_SIZET session_key_len);
 
-  OFC_VOID mbedtls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
-                               OFC_UCHAR *iv, OFC_SIZET iv_size,
-                               OFC_UINT8 *aead, OFC_SIZET aead_size,
-                               OFC_SIZET tag_size,
-                               OFC_UINT8 *ctext, OFC_SIZET ctext_size,
-                               OFC_UINT8 *ptext, OFC_SIZET ptext_size);
+  OFC_BOOL mbedtls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
+                                OFC_UCHAR *iv, OFC_SIZET iv_size,
+                                OFC_UINT8 *aead, OFC_SIZET aead_size,
+                                OFC_SIZET tag_size,
+                                OFC_UINT8 *ctext, OFC_SIZET ctext_size,
+                                OFC_UINT8 *ptext, OFC_SIZET ptext_size);
 
-  OFC_VOID
+  OFC_BOOL
   mbedtls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                               OFC_UCHAR *iv, OFC_SIZET iv_size,
                               OFC_UINT8 *aead, OFC_SIZET aead_size,

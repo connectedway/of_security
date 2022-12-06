@@ -289,7 +289,7 @@ gnutls_smb2_decryption_ctx(OFC_UCHAR *session_key,
   return (cipher_ctx);
 }
 
-OFC_VOID gnutls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
+OFC_BOOL gnutls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                               OFC_UCHAR *iv, OFC_SIZET iv_size,
                               OFC_UINT8 *aead, OFC_SIZET aead_size,
                               OFC_SIZET tag_size,
@@ -299,13 +299,16 @@ OFC_VOID gnutls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
   gnutls_aead_cipher_hd_t *decryption_cipher_hnd =
     cipher_ctx->impl_cipher_ctx ;
   size_t gnutls_ptext_size = ptext_size;
+  OFC_BOOL ret = OFC_TRUE;
 
-  gnutls_aead_cipher_decrypt(*decryption_cipher_hnd,
-                             iv, iv_size,
-                             aead, aead_size,
-                             tag_size,
-                             ctext, ctext_size,
-                             ptext, &gnutls_ptext_size);
+  if (gnutls_aead_cipher_decrypt(*decryption_cipher_hnd,
+                                 iv, iv_size,
+                                 aead, aead_size,
+                                 tag_size,
+                                 ctext, ctext_size,
+                                 ptext, &gnutls_ptext_size) < 0)
+    ret = OFC_FALSE;
+  return (ret);
 }
   
 OFC_VOID

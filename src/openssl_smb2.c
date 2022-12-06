@@ -323,7 +323,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   return (cipher_ctx);
 }
 
-OFC_VOID openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
+OFC_BOOL openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                               OFC_UCHAR *iv, OFC_SIZET iv_size,
                               OFC_UINT8 *aead, OFC_SIZET aead_size,
                               OFC_SIZET tag_size,
@@ -337,6 +337,7 @@ OFC_VOID openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
   OFC_UINT8 *tag;
   OFC_UINT rc;
   int evp_ptext_size;
+  OFC_BOOL ret;
 
   ofc_assert(tag_size == 16, "Bad Tag or Key Size");
 
@@ -348,22 +349,32 @@ OFC_VOID openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
   tag = ctext + ctext_size;
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size, tag);
 
-  rc = EVP_DecryptInit_ex(evp_cipher_ctx, NULL, NULL,
-                          cipher_ctx->key, iv);
-  rc = EVP_DecryptUpdate(evp_cipher_ctx,
-                         NULL,
-                         &evp_ptext_size,
-                         NULL,
-                         ctext_size);
-  rc = EVP_DecryptUpdate(evp_cipher_ctx,
-                         NULL,
-                         &evp_ptext_size,
-                         aead, aead_size);
+  EVP_DecryptInit_ex(evp_cipher_ctx, NULL, NULL,
+                     cipher_ctx->key, iv);
+  EVP_DecryptUpdate(evp_cipher_ctx,
+                    NULL,
+                    &evp_ptext_size,
+                    NULL,
+                    ctext_size);
+  EVP_DecryptUpdate(evp_cipher_ctx,
+                    NULL,
+                    &evp_ptext_size,
+                    aead, aead_size);
+  /*
+   * The tag verify occurs on the last decrypt update as per
+   * https://wiki.openssl.org/
+   */
   rc = EVP_DecryptUpdate(evp_cipher_ctx,
                          ptext,
                          &evp_ptext_size,
                          ctext,
                          ctext_size);
+  if (rc <= 0)
+    /*
+     * verify failed
+     */
+    ret = OFC_FALSE;
+  return (ret);
 }
   
 OFC_VOID
