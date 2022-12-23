@@ -21,6 +21,12 @@
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/ccm.h>
 
+#if defined(__linux__)
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#endif
+
 struct of_security_signing_ctx *
 mbedtls_smb2_signing_ctx(OFC_UCHAR *session_key,
                         OFC_SIZET session_key_len)
@@ -448,6 +454,51 @@ mbedtls_smb2_decryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 }
 
 
+/*
+ * Workaround for qemuarm64
+ * qemu arm has bug in it and will hang when trying to get random
+ */
+int my_mbedtls_entropy_func(void *data, unsigned char *output, size_t len)
+{
+  int ret = 0;
+#if defined(__linux__)
+  char name[64];
+
+  if (gethostname(name, sizeof(name)) != 0)
+    ret = MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+  else
+    {
+      if (ofc_strncmp(name, "qemuarm64", strlen("qemuarm64")) == 0)
+	{
+	  FILE *file;
+	  size_t read_len;
+
+	  file = fopen( "/dev/urandom", "rb" );
+	  if( file == NULL )
+	    {
+	      ret = MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+	    }
+	  else
+	    {
+	      /* Ensure no stdio buffering of secrets, 
+	       * as such buffers cannot be wiped. */
+	      read_len = fread( output, 1, len, file );
+	      if( read_len != len )
+		ret = MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+	      fclose( file );
+	    }
+	}
+      else
+	{
+	  ret = mbedtls_entropy_func(data, output, len);
+	}
+    }
+#else
+  ret = mbedtls_entropy_func(data, output, len);
+#endif
+  return (ret);
+}
+
 OFC_VOID mbedtls_smb2_rand_bytes(OFC_UCHAR *output, OFC_SIZET output_size)
 {
   static OFC_BOOL rng_init = OFC_FALSE;
@@ -460,7 +511,7 @@ OFC_VOID mbedtls_smb2_rand_bytes(OFC_UCHAR *output, OFC_SIZET output_size)
       rng_init = OFC_TRUE;
       mbedtls_entropy_init(&entropy);
       mbedtls_ctr_drbg_init (&ctr_drbg);
-      mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+      mbedtls_ctr_drbg_seed(&ctr_drbg, my_mbedtls_entropy_func, &entropy,
                             (const unsigned char *) personalization,
                             ofc_strlen(personalization));
     }
