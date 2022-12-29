@@ -1764,8 +1764,6 @@ gs2_get_init_creds(context_t *text,
 					  &cred_authid,
 					  NULL);
 
-	      ofc_printf ("cred_authid %s\n", cred_authid.value) ;
-
 	      maj_stat = gss_acquire_cred_with_password(&min_stat,
 							text->client_name,
 							&password_buf,

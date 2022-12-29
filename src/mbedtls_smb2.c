@@ -81,17 +81,17 @@ mbedtls_smb2_signing_ctx(OFC_UCHAR *session_key,
   rc = mbedtls_cipher_setup(mbedtls_cipher_ctx,
                             mbedtls_cipher_info_from_string("AES-128-ECB"));
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
 
   rc = mbedtls_cipher_cmac_starts(mbedtls_cipher_ctx,
                              (const unsigned char *) signing_ctx->key,
                                   signing_ctx->keylen * 8);
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
 
   rc = mbedtls_cipher_cmac_reset(mbedtls_cipher_ctx);
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
 
   signing_ctx->impl_signing_ctx = mbedtls_cipher_ctx;
 
@@ -113,7 +113,7 @@ mbedtls_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
 
   rc = mbedtls_cipher_cmac_reset(mbedtls_cipher_ctx);
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
 
   for (i = 0 ; i < num_elem && rc == 0; i++)
     {
@@ -122,10 +122,10 @@ mbedtls_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
     }
 
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
   rc = mbedtls_cipher_cmac_finish(mbedtls_cipher_ctx, mac);
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
 #if 0
   of_security_print_key("mbedtls sign: ", mac);
 #endif
@@ -144,14 +144,14 @@ OFC_VOID mbedtls_smb2_sign(struct of_security_signing_ctx *signing_ctx,
 
   rc = mbedtls_cipher_cmac_reset(mbedtls_cipher_ctx);
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
 
   rc = mbedtls_cipher_cmac_update(mbedtls_cipher_ctx, ptext, ptext_size);
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
   rc = mbedtls_cipher_cmac_finish(mbedtls_cipher_ctx, mac);
   if (rc != 0)
-    ofc_printf(mbedtls_high_level_strerr(rc));
+    ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
 #if 0
   of_security_print_key("mbedtls sign: ", mac);
 #endif
