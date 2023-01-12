@@ -17,6 +17,12 @@ struct of_security_signing_ctx
   OFC_SIZET keylen;
 };
 
+enum smb2_cipher_type
+  {
+   SMB2_CIPHER_TYPE_CLIENT,
+   SMB2_CIPHER_TYPE_SERVER
+  };
+
 #if defined(__cplusplus)
 extern "C"
 {
@@ -38,7 +44,8 @@ extern "C"
   OFC_VOID smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx);
 
   struct of_security_cipher_ctx *
-  smb2_encryption_ctx(OFC_UCHAR *session_key,
+  smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
+		      OFC_UCHAR *session_key,
                       OFC_SIZET session_key_len);
 
   OFC_VOID smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
@@ -59,7 +66,8 @@ extern "C"
   OFC_VOID smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx);
 
   struct of_security_cipher_ctx *
-  smb2_decryption_ctx(OFC_UCHAR *session_key,
+  smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
+		      OFC_UCHAR *session_key,
                       OFC_SIZET session_key_len);
 
   OFC_BOOL smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,

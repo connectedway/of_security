@@ -24,6 +24,7 @@
 #else
 #include <openssl/cmac.h>
 #include <openssl/hmac.h>
+#include <openssl/err.h>
 #endif
 
 
@@ -275,7 +276,8 @@ openssl_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
 struct of_security_cipher_ctx *
-openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
+			    OFC_UCHAR *session_key, OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -313,7 +315,10 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
   EVP_MAC_update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
   EVP_MAC_update(macctx, (const unsigned char *) &zero, 1);
-  EVP_MAC_update(macctx, (const unsigned char *) "ServerIn ", 10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    EVP_MAC_update(macctx, (const unsigned char *) "ServerOut", 10);
+  else
+    EVP_MAC_update(macctx, (const unsigned char *) "ServerIn ", 10);
   EVP_MAC_update(macctx, (const unsigned char *) &len, sizeof(len));
   EVP_MAC_final(macctx, digest, &digest_len, digest_len);
   EVP_MAC_CTX_free(macctx);
@@ -329,10 +334,10 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
   EVP_EncryptInit_ex(evp_cipher_ctx,
                      EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_CCM_SET_IVLEN, 11,
+                      EVP_CTRL_AEAD_SET_IVLEN, 11,
                       NULL);
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_CCM_SET_TAG, 16, OFC_NULL);
+                      EVP_CTRL_AEAD_SET_TAG, 16, OFC_NULL);
 
   cipher_ctx->impl_cipher_ctx = evp_cipher_ctx;
 
@@ -340,7 +345,8 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
 }
 #else
 struct of_security_cipher_ctx *
-openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
+			    OFC_UCHAR *session_key, OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -351,7 +357,6 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
   HMAC_CTX *macctx;
   unsigned int digest_len;
   OFC_UINT8 digest[SHA256_DIGEST_LENGTH];
-  int rc;
   const EVP_MD* md;
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
@@ -374,7 +379,10 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
   HMAC_Update(macctx, (const unsigned char *) &one, sizeof(one));
   HMAC_Update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
   HMAC_Update(macctx, (const unsigned char *) &zero, 1);
-  HMAC_Update(macctx, (const unsigned char *) "ServerIn ", 10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    HMAC_Update(macctx, (const unsigned char *) "ServerOut", 10);
+  else
+    HMAC_Update(macctx, (const unsigned char *) "ServerIn ", 10);
   HMAC_Update(macctx, (const unsigned char *) &len, sizeof(len));
   HMAC_Final(macctx, digest, &digest_len);
   HMAC_CTX_free(macctx);
@@ -388,12 +396,14 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
 
   EVP_EncryptInit_ex(evp_cipher_ctx,
-                     EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
+		     EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
+
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_CCM_SET_IVLEN, 11,
-                      NULL);
+		      EVP_CTRL_AEAD_SET_IVLEN, 11,
+		      NULL);
+  
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_CCM_SET_TAG, 16, OFC_NULL);
+		      EVP_CTRL_AEAD_SET_TAG, 16, OFC_NULL);
 
   cipher_ctx->impl_cipher_ctx = evp_cipher_ctx;
 
@@ -417,30 +427,33 @@ openssl_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
   evp_ctext_size = ctext_size;
 
   EVP_EncryptInit_ex(evp_cipher_ctx, NULL, NULL,
-                     cipher_ctx->key, iv);
+		     cipher_ctx->key, iv);
   EVP_EncryptUpdate(evp_cipher_ctx,
-                    NULL,
-                    &evp_ctext_size,
-                    NULL,
-                    ptext_size);
+		    NULL,
+		    &evp_ctext_size,
+		    NULL,
+		    ptext_size);
+
   EVP_EncryptUpdate(evp_cipher_ctx,
-                    NULL,
-                    &evp_ctext_size,
-                    aead,
-                    aead_size);
+		    NULL,
+		    &evp_ctext_size,
+		    aead,
+		    aead_size);
+
   EVP_EncryptUpdate(evp_cipher_ctx,
-                    ctext,
-                    &evp_ctext_size,
-                    ptext,
-                    ptext_size);
+		    ctext,
+		    &evp_ctext_size,
+		    ptext,
+		    ptext_size);
 
   EVP_EncryptFinal_ex(evp_cipher_ctx,
-                      NULL, &evp_ctext_size);
+		      ctext+evp_ctext_size,
+		      &evp_ctext_size);
 
   tag = ctext + (ctext_size - tag_size);
   
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_CCM_GET_TAG, tag_size, tag);
+		      EVP_CTRL_AEAD_GET_TAG, tag_size, tag);
 
 #if 0
   of_security_print_key("openssl encrypt signature :", signature);
@@ -460,49 +473,57 @@ openssl_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
     (EVP_CIPHER_CTX *) cipher_ctx->impl_cipher_ctx;
   int evp_ctext_size;
   OFC_UINT8 *tag;
-  size_t inlen = 0;
-  size_t outlen;
+  int rc;
+
+  OFC_UINT8 *ptext;
+  size_t ptext_size = 0;
+
+  OFC_UINT8 *p;
 
   /*
-   * Get size of input
+   * Convert vector to contigous buffer
    */
   for (int i = 0 ; i < num_elem; i++)
     {
-      inlen += len[i];
+      ptext_size += len[i];
+    }
+  ptext = ofc_malloc(ptext_size);
+  p = ptext;
+  for (int i = 0; i < num_elem; i++)
+    {
+      ofc_memcpy(p, addr[i], len[i]);
+      p += len[i];
     }
 
-  evp_ctext_size = ctext_size;
-
   EVP_EncryptInit_ex(evp_cipher_ctx, NULL, NULL,
-                     cipher_ctx->key, iv);
+		     cipher_ctx->key, iv);
+
   EVP_EncryptUpdate(evp_cipher_ctx,
                     NULL,
                     &evp_ctext_size,
                     NULL,
-                    inlen);
+                    ptext_size);
+
   EVP_EncryptUpdate(evp_cipher_ctx,
                     NULL,
                     &evp_ctext_size,
                     aead,
                     aead_size);
 
-  OFC_OFFT offset = 0;
-  for (int i = 0 ; i < num_elem; i++)
-    {
-      EVP_EncryptUpdate(evp_cipher_ctx,
-			ctext+offset,
-			&evp_ctext_size,
-			addr[i],
-			len[i]);
-      offset += evp_ctext_size;
-    }
+  EVP_EncryptUpdate(evp_cipher_ctx,
+		    ctext,
+		    &evp_ctext_size,
+		    ptext, ptext_size);
+
+  ofc_free(ptext);
+
   EVP_EncryptFinal_ex(evp_cipher_ctx,
                       NULL, &evp_ctext_size);
 
   tag = ctext + (ctext_size - tag_size);
   
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_CCM_GET_TAG, tag_size, tag);
+                      EVP_CTRL_AEAD_GET_TAG, tag_size, tag);
 
 #if 0
   of_security_print_key("openssl encrypt signature :", signature);
@@ -521,7 +542,8 @@ openssl_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
   
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
 struct of_security_cipher_ctx *
-openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
+openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
+			    OFC_UCHAR *session_key,
                             OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
@@ -534,7 +556,6 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   OSSL_PARAM params[2];
   size_t digest_len;
   OFC_UINT8 digest[SHA256_DIGEST_LENGTH];
-  int rc;
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
@@ -557,7 +578,10 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
   EVP_MAC_update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
   EVP_MAC_update(macctx, (const unsigned char *) &zero, 1);
-  EVP_MAC_update(macctx, (const unsigned char *) "ServerOut", 10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    EVP_MAC_update(macctx, (const unsigned char *) "ServerIn ", 10);
+  else
+    EVP_MAC_update(macctx, (const unsigned char *) "ServerOut", 10);
   EVP_MAC_update(macctx, (const unsigned char *) &len, sizeof(len));
   EVP_MAC_final(macctx, digest, &digest_len, digest_len); 
   EVP_MAC_CTX_free(macctx);
@@ -571,16 +595,19 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
 #endif
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
   EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
-                     OFC_NULL, OFC_NULL, OFC_NULL);
+		     OFC_NULL, OFC_NULL, OFC_NULL);
+
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_AEAD_SET_IVLEN, 11,
-                      NULL);
+		      EVP_CTRL_AEAD_SET_IVLEN, 11,
+		      NULL);
+
   cipher_ctx->impl_cipher_ctx = evp_cipher_ctx;
   return (cipher_ctx);
 }
 #else
 struct of_security_cipher_ctx *
-openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
+openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
+			    OFC_UCHAR *session_key,
                             OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
@@ -591,7 +618,6 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   HMAC_CTX *macctx;
   unsigned int digest_len;
   OFC_UINT8 digest[SHA256_DIGEST_LENGTH];
-  int rc;
   const EVP_MD *md;
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
@@ -611,7 +637,10 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   HMAC_Update(macctx, (const unsigned char *) &one, sizeof(one));
   HMAC_Update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
   HMAC_Update(macctx, (const unsigned char *) &zero, 1);
-  HMAC_Update(macctx, (const unsigned char *) "ServerOut", 10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    HMAC_Update(macctx, (const unsigned char *) "ServerIn ", 10);
+  else
+    HMAC_Update(macctx, (const unsigned char *) "ServerOut", 10);
   HMAC_Update(macctx, (const unsigned char *) &len, sizeof(len));
   HMAC_Final(macctx, digest, &digest_len); 
   HMAC_CTX_free(macctx);
@@ -625,10 +654,14 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
 #endif
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
   EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
-                     OFC_NULL, OFC_NULL, OFC_NULL);
+		     OFC_NULL, OFC_NULL, OFC_NULL);
+
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_AEAD_SET_IVLEN, 11,
-                      NULL);
+		      EVP_CTRL_AEAD_SET_IVLEN, 11,
+		      NULL);
+  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, 16,
+		      NULL);
+
   cipher_ctx->impl_cipher_ctx = evp_cipher_ctx;
   return (cipher_ctx);
 }
@@ -646,7 +679,7 @@ OFC_BOOL openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
   OFC_UINT8 *tag;
   OFC_UINT rc;
   int evp_ptext_size;
-  OFC_BOOL ret;
+  OFC_BOOL ret = OFC_TRUE;
 
   ofc_assert(tag_size == 16, "Bad Tag or Key Size");
 
@@ -654,20 +687,28 @@ OFC_BOOL openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
   evp_cipher_ctx =
     (EVP_CIPHER_CTX *) cipher_ctx->impl_cipher_ctx;
 
-  tag = ctext + ctext_size;
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size, tag);
+  /*
+   * Pull tag out of bufer
+   */
+  ctext_size -= tag_size;
+  tag = ctext + ctext_size ;
+
+  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size,
+		      tag);
 
   EVP_DecryptInit_ex(evp_cipher_ctx, NULL, NULL,
-                     cipher_ctx->key, iv);
+		     cipher_ctx->key, iv);
+
   EVP_DecryptUpdate(evp_cipher_ctx,
-                    NULL,
-                    &evp_ptext_size,
-                    NULL,
-                    ctext_size);
+		    NULL,
+		    &evp_ptext_size,
+		    NULL,
+		    ctext_size);
+
   EVP_DecryptUpdate(evp_cipher_ctx,
-                    NULL,
-                    &evp_ptext_size,
-                    aead, aead_size);
+		    NULL,
+		    &evp_ptext_size,
+		    aead, aead_size);
   /*
    * The tag verify occurs on the last decrypt update as per
    * https://wiki.openssl.org/
@@ -698,9 +739,10 @@ openssl_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
 
   OFC_UINT rc;
   int evp_ptext_size;
-  size_t inlen = 0;
-  size_t outlen;
   OFC_BOOL ret = OFC_TRUE;
+  OFC_UINT8 *ctext;
+  size_t ctext_size = 0;
+  OFC_UINT8 *p;
 
   ofc_assert(tag_size == 16, "Bad Tag or Key Size");
 
@@ -713,40 +755,42 @@ openssl_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
    */
   for (int i = 0 ; i < num_elem; i++)
     {
-      inlen += len[i];
+      ctext_size += len[i];
+    }
+  ctext = ofc_malloc(ctext_size);
+  p = ctext;
+  for (int i = 0 ; i < num_elem; i++)
+    {
+      ofc_memcpy (p, addr[i], len[i]);
+      p += len[i];
     }
 
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size, tag);
+  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size,
+		      tag);
 
   EVP_DecryptInit_ex(evp_cipher_ctx, NULL, NULL,
-                     cipher_ctx->key, iv);
+		     cipher_ctx->key, iv);
   EVP_DecryptUpdate(evp_cipher_ctx,
-                    NULL,
-                    &evp_ptext_size,
-                    NULL,
-                    inlen);
+		    NULL,
+		    &evp_ptext_size,
+		    NULL,
+		    ctext_size);
   EVP_DecryptUpdate(evp_cipher_ctx,
-                    NULL,
-                    &evp_ptext_size,
-                    aead, aead_size);
+		    NULL,
+		    &evp_ptext_size,
+		    aead, aead_size);
 
-  evp_ptext_size = 0;
   OFC_OFFT offset = 0;
-  rc = 1;
 
-  for (int i = 0 ; i < num_elem && rc > 0; i++)
-    {
-      /*
-       * The tag verify occurs on the last decrypt update as per
-       * https://wiki.openssl.org/
-       */
-      rc = EVP_DecryptUpdate(evp_cipher_ctx,
-			     ptext+offset,
-			     &evp_ptext_size,
-			     addr[i],
-			     len[i]);
-      offset += evp_ptext_size;
-    }
+  /*
+   * The tag verify occurs on the last decrypt update as per
+   * https://wiki.openssl.org/
+   */
+  rc = EVP_DecryptUpdate(evp_cipher_ctx,
+			 ptext,
+			 &evp_ptext_size,
+			 ctext, ctext_size);
+  ofc_free(ctext);
 
   if (rc <= 0)
     /*

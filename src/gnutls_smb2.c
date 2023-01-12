@@ -123,7 +123,8 @@ gnutls_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 }
 
 struct of_security_cipher_ctx *
-gnutls_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+gnutls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
+			   OFC_UCHAR *session_key, OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -155,9 +156,14 @@ gnutls_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &zero,
                    1);
-  rc = gnutls_hmac(hmac_hnd,
-                   (const unsigned char *) "ServerIn ",
-                   10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    rc = gnutls_hmac(hmac_hnd,
+		     (const unsigned char *) "ServerOut",
+		     10);
+  else
+    rc = gnutls_hmac(hmac_hnd,
+		     (const unsigned char *) "ServerIn ",
+		     10);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &len,
                    sizeof(len));
@@ -224,7 +230,8 @@ gnutls_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 }
   
 struct of_security_cipher_ctx *
-gnutls_smb2_decryption_ctx(OFC_UCHAR *session_key,
+gnutls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
+			   OFC_UCHAR *session_key,
                            OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
@@ -257,9 +264,14 @@ gnutls_smb2_decryption_ctx(OFC_UCHAR *session_key,
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &zero,
                    1);
-  rc = gnutls_hmac(hmac_hnd,
-                   (const unsigned char *) "ServerOut",
-                   10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    rc = gnutls_hmac(hmac_hnd,
+		     (const unsigned char *) "ServerIn ",
+		     10);
+  else
+    rc = gnutls_hmac(hmac_hnd,
+		     (const unsigned char *) "ServerOut",
+		     10);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &len,
                    sizeof(len));

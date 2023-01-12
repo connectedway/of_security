@@ -170,7 +170,8 @@ mbedtls_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 }
 
 struct of_security_cipher_ctx *
-mbedtls_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+mbedtls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
+			    OFC_UCHAR *session_key, OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -203,8 +204,12 @@ mbedtls_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len)
                          (const unsigned char *) "SMB2AESCCM", 11);
   mbedtls_md_hmac_update(&mbedtls_ctx, 
                          (const unsigned char *) &zero, 1);
-  mbedtls_md_hmac_update(&mbedtls_ctx, 
-                         (const unsigned char *) "ServerIn ", 10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    mbedtls_md_hmac_update(&mbedtls_ctx, 
+			   (const unsigned char *) "ServerOut", 10);
+  else
+    mbedtls_md_hmac_update(&mbedtls_ctx, 
+			   (const unsigned char *) "ServerIn ", 10);
   mbedtls_md_hmac_update(&mbedtls_ctx,
                          (const unsigned char *) &len, sizeof(len));
   mbedtls_md_hmac_finish(&mbedtls_ctx, digest);
@@ -314,8 +319,9 @@ mbedtls_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 }
   
 struct of_security_cipher_ctx *
-mbedtls_smb2_decryption_ctx(OFC_UCHAR *session_key,
-                           OFC_SIZET session_key_len)
+mbedtls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
+			    OFC_UCHAR *session_key,
+			    OFC_SIZET session_key_len)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -347,8 +353,12 @@ mbedtls_smb2_decryption_ctx(OFC_UCHAR *session_key,
                          (const unsigned char *) "SMB2AESCCM", 11);
   mbedtls_md_hmac_update(&mbedtls_ctx, 
                          (const unsigned char *) &zero, 1);
-  mbedtls_md_hmac_update(&mbedtls_ctx, 
-                         (const unsigned char *) "ServerOut", 10);
+  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
+    mbedtls_md_hmac_update(&mbedtls_ctx, 
+			   (const unsigned char *) "ServerIn ", 10);
+  else
+    mbedtls_md_hmac_update(&mbedtls_ctx, 
+			   (const unsigned char *) "ServerOut", 10);
   mbedtls_md_hmac_update(&mbedtls_ctx,
                          (const unsigned char *) &len, sizeof(len));
                                     

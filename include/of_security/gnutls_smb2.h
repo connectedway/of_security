@@ -4,6 +4,8 @@
 
 #if defined(OF_GNUTLS)
 
+#include "of_security/security_smb2.h"
+
 #if defined(__cplusplus)
 extern "C"
 {
@@ -28,7 +30,8 @@ extern "C"
   gnutls_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx);
 
   struct of_security_cipher_ctx *
-  gnutls_smb2_encryption_ctx(OFC_UCHAR *session_key,
+  gnutls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
+			     OFC_UCHAR *session_key,
                              OFC_SIZET session_key_len);
 
   OFC_VOID
@@ -43,7 +46,8 @@ extern "C"
   gnutls_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx);
 
   struct of_security_cipher_ctx *
-  gnutls_smb2_decryption_ctx(OFC_UCHAR *session_key,
+  gnutls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
+			     OFC_UCHAR *session_key,
                              OFC_SIZET session_key_len);
 
   OFC_BOOL gnutls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,

@@ -8,6 +8,7 @@
 #include "ofc/libc.h"
 #include "ofc/net_internal.h"
 
+#include "of_security/security_smb2.h"
 #if defined(OF_MBEDTLS)
 #include "of_security/mbedtls_smb2.h"
 #elif defined(OF_OPENSSL)
@@ -88,15 +89,20 @@ OFC_VOID smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 #endif
 }
 
-struct of_security_cipher_ctx *smb2_encryption_ctx(OFC_UCHAR *session_key,
-                                                   OFC_SIZET session_key_len)
+struct of_security_cipher_ctx *
+smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
+		    OFC_UCHAR *session_key,
+		    OFC_SIZET session_key_len)
 {
 #if defined(OF_MBEDTLS)
-  return (mbedtls_smb2_encryption_ctx(session_key, session_key_len));
+  return (mbedtls_smb2_encryption_ctx(cipher_type,
+				      session_key, session_key_len));
 #elif defined(OF_OPENSSL)
-  return (openssl_smb2_encryption_ctx(session_key, session_key_len));
+  return (openssl_smb2_encryption_ctx(cipher_type, session_key,
+				      session_key_len));
 #elif defined(OF_GNUTLS)
-  return (gnutls_smb2_encryption_ctx(session_key, session_key_len));
+  return (gnutls_smb2_encryption_ctx(cipher_type,
+				     session_key, session_key_len));
 #endif
 }
 
@@ -156,15 +162,20 @@ OFC_VOID smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 #endif
 }
   
-struct of_security_cipher_ctx *smb2_decryption_ctx(OFC_UCHAR *session_key,
-                                                   OFC_SIZET session_key_len)
+struct of_security_cipher_ctx *
+smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
+		    OFC_UCHAR *session_key,
+		    OFC_SIZET session_key_len)
 {
 #if defined(OF_MBEDTLS)
-  return (mbedtls_smb2_decryption_ctx(session_key, session_key_len));
+  return (mbedtls_smb2_decryption_ctx(cipher_type,
+				      session_key, session_key_len));
 #elif defined(OF_OPENSSL)
-  return (openssl_smb2_decryption_ctx(session_key, session_key_len));
+  return (openssl_smb2_decryption_ctx(cipher_type, session_key,
+				      session_key_len));
 #elif defined(OF_GNUTLS)
-  return (gnutls_smb2_decryption_ctx(session_key, session_key_len));
+  return (gnutls_smb2_decryption_ctx(cipher_type,
+				     session_key, session_key_len));
 #endif
 }
 
