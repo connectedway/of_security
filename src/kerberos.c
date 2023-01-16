@@ -218,107 +218,99 @@ sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
     ofc_strcpy(out, prefix);
     
     msg_ctx = 0;
-    while (1) {
-	GSS_LOCK_MUTEX(utils);
-	maj_stat = gss_display_status(&min_stat, maj,
-				      GSS_C_GSS_CODE, GSS_C_NULL_OID,
-				      &msg_ctx, &msg);
-	GSS_UNLOCK_MUTEX(utils);
+
+    GSS_LOCK_MUTEX(utils);
+    maj_stat = gss_display_status(&min_stat, maj,
+				  GSS_C_GSS_CODE, GSS_C_NULL_OID,
+				  &msg_ctx, &msg);
+    GSS_UNLOCK_MUTEX(utils);
 	
-	if(GSS_ERROR(maj_stat)) {
-	    if (logonly) {
-		utils->log(utils->conn, SASL_LOG_FAIL,
-			"GSSAPI Failure: (could not get major error message)");
-	    } else {
-		utils->seterror(utils->conn, 0,
-				"GSSAPI Failure "
-				"(could not get major error message)");
-	    }
-	    utils->free(out);
-	    return SASL_OK;
-	}
-	
-	len += len + msg.length;
-	ret = of_security_plug_buf_alloc(utils, &out, &curlen, (unsigned) len);
-	
-	if(ret != SASL_OK) {
-	    utils->free(out);
-	    return SASL_NOMEM;
-	}
-	
-	ofc_strcat(out, msg.value);
-	
-	GSS_LOCK_MUTEX(utils);
-	gss_release_buffer(&min_stat, &msg);
-	GSS_UNLOCK_MUTEX(utils);
-	
-	if (!msg_ctx)
-	    break;
+    if(GSS_ERROR(maj_stat)) {
+      if (logonly) {
+	utils->log(utils->conn, SASL_LOG_FAIL,
+		   "GSSAPI Failure: (could not get major error message)");
+      } else {
+	utils->seterror(utils->conn, 0,
+			"GSSAPI Failure "
+			"(could not get major error message)");
+      }
+      utils->free(out);
+      return SASL_OK;
     }
-    
+	
+    len += len + msg.length;
+    ret = of_security_plug_buf_alloc(utils, &out, &curlen, (unsigned) len);
+	
+    if(ret != SASL_OK) {
+      utils->free(out);
+      return SASL_NOMEM;
+    }
+	
+    ofc_strcat(out, msg.value);
+	
+    GSS_LOCK_MUTEX(utils);
+    gss_release_buffer(&min_stat, &msg);
+    GSS_UNLOCK_MUTEX(utils);
+	
     /* Now get the minor status */
     
     len += 2;
     ret = of_security_plug_buf_alloc(utils, &out, &curlen, (unsigned) len);
     if(ret != SASL_OK) {
-	utils->free(out);
-	return SASL_NOMEM;
+      utils->free(out);
+      return SASL_NOMEM;
     }
     
     ofc_strcat(out, " (");
     
     msg_ctx = 0;
-    while (1) {
-	GSS_LOCK_MUTEX(utils);
-	maj_stat = gss_display_status(&min_stat, min,
-				      GSS_C_MECH_CODE, GSS_C_NULL_OID,
-				      &msg_ctx, &msg);
-	GSS_UNLOCK_MUTEX(utils);
-	
-	if(GSS_ERROR(maj_stat)) {
-	    if (logonly) {
-		utils->log(utils->conn, SASL_LOG_FAIL,
-			"GSSAPI Failure: (could not get minor error message)");
-	    } else {
-		utils->seterror(utils->conn, 0,
-				"GSSAPI Failure "
-				"(could not get minor error message)");
-	    }
-	    utils->free(out);
-	    return SASL_OK;
-	}
-	
-	len += len + msg.length;
 
-	ret = of_security_plug_buf_alloc(utils, &out, &curlen, (unsigned) len);
-	if(ret != SASL_OK) {
-	    utils->free(out);
-	    return SASL_NOMEM;
-	}
+    GSS_LOCK_MUTEX(utils);
+    maj_stat = gss_display_status(&min_stat, min,
+				  GSS_C_MECH_CODE, GSS_C_NULL_OID,
+				  &msg_ctx, &msg);
+    GSS_UNLOCK_MUTEX(utils);
 	
-	ofc_strcat(out, msg.value);
-	
-	GSS_LOCK_MUTEX(utils);
-	gss_release_buffer(&min_stat, &msg);
-	GSS_UNLOCK_MUTEX(utils);
-	
-	if (!msg_ctx)
-	    break;
+    if(GSS_ERROR(maj_stat)) {
+      if (logonly) {
+	utils->log(utils->conn, SASL_LOG_FAIL,
+		   "GSSAPI Failure: (could not get minor error message)");
+      } else {
+	utils->seterror(utils->conn, 0,
+			"GSSAPI Failure "
+			"(could not get minor error message)");
+      }
+      utils->free(out);
+      return SASL_OK;
     }
-    
+	
+    len += len + msg.length;
+
+    ret = of_security_plug_buf_alloc(utils, &out, &curlen, (unsigned) len);
+    if(ret != SASL_OK) {
+      utils->free(out);
+      return SASL_NOMEM;
+    }
+	
+    ofc_strcat(out, msg.value);
+	
+    GSS_LOCK_MUTEX(utils);
+    gss_release_buffer(&min_stat, &msg);
+    GSS_UNLOCK_MUTEX(utils);
+
     len += 1;
     ret = of_security_plug_buf_alloc(utils, &out, &curlen, (unsigned) len);
     if(ret != SASL_OK) {
-	utils->free(out);
-	return SASL_NOMEM;
+      utils->free(out);
+      return SASL_NOMEM;
     }
     
     ofc_strcat(out, ")");
     
     if (logonly) {
-	utils->log(utils->conn, SASL_LOG_FAIL, "%s", out);
+      utils->log(utils->conn, SASL_LOG_FAIL, "%s", out);
     } else {
-	utils->seterror(utils->conn, 0, "%s", out);
+      utils->seterror(utils->conn, 0, "%s", out);
     }
     utils->free(out);
 
@@ -547,11 +539,12 @@ static int sasl_gss_free_context_contents(context_t *text)
     }
 #endif
 
-    if (text->gss_ctx != GSS_C_NO_CONTEXT) {
-        (void) gss_delete_sec_context(&min_stat,&text->gss_ctx,
-                                      GSS_C_NO_BUFFER);
+    if (text->gss_ctx != GSS_C_NO_CONTEXT)
+      {
+	(void) gss_delete_sec_context(&min_stat,&text->gss_ctx,
+				      GSS_C_NO_BUFFER);
 	text->gss_ctx = GSS_C_NO_CONTEXT;
-    }
+      }
     
     if (text->client_name != GSS_C_NO_NAME) {
 	(void) gss_release_name(&min_stat,&text->client_name);
@@ -563,15 +556,17 @@ static int sasl_gss_free_context_contents(context_t *text)
 	text->server_name = GSS_C_NO_NAME;
     }
     
-    if ( text->server_creds != GSS_C_NO_CREDENTIAL) {
+    if ( text->server_creds != GSS_C_NO_CREDENTIAL)
+      {
 	(void) gss_release_cred(&min_stat, &text->server_creds);
 	text->server_creds = GSS_C_NO_CREDENTIAL;
-    }
+      }
 
-    if ( text->client_creds != GSS_C_NO_CREDENTIAL) {
+    if ( text->client_creds != GSS_C_NO_CREDENTIAL)
+      {
 	(void) gss_release_cred(&min_stat, &text->client_creds);
 	text->client_creds = GSS_C_NO_CREDENTIAL;
-    }
+      }
 
     if (text->out_buf) {
 	text->utils->free(text->out_buf);
@@ -1084,10 +1079,11 @@ gssapi_server_mech_authneg(context_t *text,
     ret = SASL_OK;
 
     /* Release server creds which are no longer needed */
-     if ( text->server_creds != GSS_C_NO_CREDENTIAL) {
-        maj_stat = gss_release_cred(&min_stat, &text->server_creds);
+     if ( text->server_creds != GSS_C_NO_CREDENTIAL)
+       {
+	 maj_stat = gss_release_cred(&min_stat, &text->server_creds);
         text->server_creds = GSS_C_NO_CREDENTIAL;
-     }
+       }
 
   cleanup:
     if (text->server_creds != GSS_C_NO_CREDENTIAL) {
@@ -1855,11 +1851,23 @@ static int gssapi_client_mech_step(void *conn_context,
 
     case SASL_GSSAPI_STATE_AUTHNEG:
       if (text->gss_ctx == GSS_C_NO_CONTEXT) {
+#if defined(__ANDROID__)
+	/*
+	 * For Android, we don't have a credential cache, so get
+	 * the credentials from the caller
+	 */
         ret = gs2_get_init_creds(text, params, prompt_need, oparams);
         if (ret != SASL_OK) {
 	  return ret;
 	}
 	client_creds = (gss_cred_id_t)text->client_creds;
+#else
+	/*
+	 * This means we want to get our creds out of the credential
+	 * cache
+	 */
+	client_creds = GSS_C_NO_CREDENTIAL;
+#endif
       }
 
 	if (text->server_name == GSS_C_NO_NAME) { /* only once */
