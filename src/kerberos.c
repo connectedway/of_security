@@ -1862,6 +1862,43 @@ static int gssapi_client_mech_step(void *conn_context,
 	}
 	client_creds = (gss_cred_id_t)text->client_creds;
 #else
+	OFC_CCHAR *old_name;
+	OFC_CHAR *domain;
+
+	ret = of_security_plug_get_domain(params->utils, &domain,
+					  prompt_need);
+	if (ret == SASL_INTERACT)
+	  {
+	    ret = of_security_plug_make_prompts(params->utils, prompt_need,
+						NULL, NULL, /* user */
+						NULL, NULL, /* auth */
+						NULL, NULL, /* pass */
+						NULL, NULL, NULL, /* echo */
+						NULL, "Domain: ", NULL,
+						NULL, NULL);
+	    if (ret == SASL_OK)
+	      ret = SASL_INTERACT;
+	  }
+	if (ret != SASL_OK)
+	  {
+	    return ret;
+	  }
+	/* 
+	 * We want to specify the cache
+	 */
+	if (domain != OFC_NULL && domain[0] != '\0')
+	  {
+	    maj_stat = gss_krb5_ccache_name(&min_stat,
+					    domain,
+					    &old_name);
+	    if (GSS_ERROR(maj_stat))
+	      {
+		sasl_gss_seterror(text->utils, maj_stat, min_stat);
+	      }
+	  }
+
+	if (domain != OFC_NULL)
+	  ofc_free(domain);
 	/*
 	 * This means we want to get our creds out of the credential
 	 * cache
