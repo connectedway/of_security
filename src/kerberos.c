@@ -1851,7 +1851,7 @@ static int gssapi_client_mech_step(void *conn_context,
 
     case SASL_GSSAPI_STATE_AUTHNEG:
       if (text->gss_ctx == GSS_C_NO_CONTEXT) {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__APPLE__)
 	/*
 	 * For Android, we don't have a credential cache, so get
 	 * the credentials from the caller
