@@ -3732,7 +3732,10 @@ static OFC_INT spnego_initial(client_context_t *text,
   if (result == SASL_OK)
     {
       if (desired == OFC_NULL)
-	result = SASL_FAIL ;
+	{
+	  result = SASL_FAIL ;
+	  ofc_log(OFC_LOG_WARN, "Unable to find an authentication method\n");
+	}
       else
 	result = add_mech(&token_init.mechTypes, desired) ;
     }
