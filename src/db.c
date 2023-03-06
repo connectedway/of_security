@@ -66,9 +66,11 @@ static int of_security_db_getdata(const sasl_utils_t *utils,
 			   OFC_SIZET *out_len)
 {
   OFC_CHAR *cstrPass ;
+#if defined(OF_SMB_SERVER)
   OFC_CHAR *cstrUser ;
   OFC_CTCHAR *tstrPass ;
   OFC_CTCHAR *tstrUser ;
+#endif
   int ret ;
 
   cstrPass = OFC_NULL ;

@@ -110,8 +110,6 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   HMAC_CTX *macctx;
   const EVP_MD* md;
 
-  int rc;
-
   signing_ctx = ofc_malloc(sizeof (struct of_security_signing_ctx));
 
   OFC_NET_LTON(&one, 0, 1);
@@ -473,7 +471,6 @@ openssl_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
     (EVP_CIPHER_CTX *) cipher_ctx->impl_cipher_ctx;
   int evp_ctext_size;
   OFC_UINT8 *tag;
-  int rc;
 
   OFC_UINT8 *ptext;
   size_t ptext_size = 0;
@@ -779,8 +776,6 @@ openssl_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
 		    NULL,
 		    &evp_ptext_size,
 		    aead, aead_size);
-
-  OFC_OFFT offset = 0;
 
   /*
    * The tag verify occurs on the last decrypt update as per

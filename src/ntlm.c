@@ -913,7 +913,6 @@ struct ntlm_credentials *ntlm_create_credentials (const sasl_secret_t *passwd,
 						  const unsigned char
 						  timestamp[8])
 {
-  int result ;
   struct ntlm_credentials *credentials ;
   HMAC_MD5_CTX ctx ;
   unsigned char *unicode_username ;
@@ -924,12 +923,10 @@ struct ntlm_credentials *ntlm_create_credentials (const sasl_secret_t *passwd,
   OFC_SIZET domain_length = 0 ;
 
   credentials = ofc_malloc (sizeof (struct ntlm_credentials)) ;
-  if (credentials == OFC_NULL)
-    result = SASL_NOMEM ;
-  else
+  if (credentials != OFC_NULL)
     {
-      result = ntlm_create_password_hash (passwd, 
-					  credentials->password_hash) ;
+      ntlm_create_password_hash (passwd, 
+				 credentials->password_hash) ;
 
       credentials->username = ofc_strdup (username) ;
       credentials->domain = ofc_strdup (domain) ;

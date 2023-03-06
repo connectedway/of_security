@@ -1105,10 +1105,9 @@ encode_MechType(OFC_UCHAR *p, OFC_SIZET len, const MechType * data,
 {
   OFC_SIZET retsize = 0;
   OFC_SIZET l;
-  OFC_INT i, e;
+  OFC_INT e;
   OFC_INT result ;
 
-  i = 0;
   e = encode_oid(p, len, data, &l);
   if (e != SASL_OK)
     result = e ;
@@ -1187,11 +1186,10 @@ encode_NegHint(OFC_UCHAR *p, OFC_SIZET len,
 {
   OFC_SIZET retsize = 0;
   OFC_SIZET l;
-  OFC_INT i, e;
+  OFC_INT e;
   OFC_INT result ;
 
   result = SASL_OK ;
-  i = 0;
 
   retsize = 0 ;
   e = encode_general_string(p, len, data, &l);
@@ -1239,11 +1237,9 @@ static OFC_INT encode_ContextFlags(OFC_UCHAR *p,
 {
   OFC_SIZET retsize = 0;
   OFC_SIZET l;
-  OFC_INT i, e;
+  OFC_INT e;
   OFC_INT result ;
   OFC_UCHAR c = 0;
-
-  i = 0;
 
   *p-- = c;
   len--;
@@ -1298,11 +1294,10 @@ encode_NegTokenInit(OFC_UCHAR *p, OFC_SIZET len,
 {
   OFC_SIZET retsize = 0;
   OFC_SIZET l;
-  OFC_INT i, e;
+  OFC_INT e;
   OFC_INT result ;
 
   result = SASL_OK ;
-  i = 0;
   /*
    * We are not utilizing the MIC
    */
@@ -1619,13 +1614,12 @@ static OFC_INT
 decode_MechType(const OFC_UCHAR *p, OFC_SIZET len, 
 		MechType * data, OFC_SIZET * size)
 {
-  OFC_SIZET retsize = 0, reallen;
+  OFC_SIZET retsize = 0;
   OFC_SIZET l;
   OFC_INT e;
   OFC_INT result ;
 
   ofc_memset(data, 0, sizeof(*data));
-  reallen = 0;
   e = decode_oid(p, len, data, &l);
   if (e != SASL_OK)
     result = e ;
@@ -1798,10 +1792,8 @@ encode_NegTokenResp(OFC_UCHAR *p, OFC_SIZET len,
 {
   OFC_SIZET retsize = 0;
   OFC_SIZET l;
-  OFC_INT i, e;
+  OFC_INT e;
   OFC_INT result ;
-
-  i = 0;
 
   result = SASL_OK ;
 #if defined(OFC_PARAM_SPNEGO_MECHLISTMIC)
@@ -3319,7 +3311,7 @@ static OFC_INT gssapi_server_mech_step(OFC_VOID *conn_context,
   gss_buffer_t input_token, output_token;
   gss_buffer_desc real_input_token, real_output_token;
   OFC_INT result = SASL_OK ;
-  OM_uint32 req_flags = 0, out_req_flags = 0;
+  OM_uint32 out_req_flags = 0;
 	
   input_token = &real_input_token;
   output_token = &real_output_token;
@@ -3337,7 +3329,6 @@ static OFC_INT gssapi_server_mech_step(OFC_VOID *conn_context,
       if (clientinlen == 0)
 	{
 	  input_token = GSS_C_NO_BUFFER;
-	  req_flags = GSS_C_INTEG_FLAG ;
 
 	  result = spnego_server_init(text,
 				      output_token,
@@ -3380,8 +3371,6 @@ static OFC_INT gssapi_server_mech_step(OFC_VOID *conn_context,
 	{
 	  real_input_token.value = (OFC_VOID *) clientin;
 	  real_input_token.length = clientinlen ;
-
-	  req_flags = GSS_C_INTEG_FLAG ;
 
 	  result = spnego_init (text,
 				input_token,
@@ -3445,8 +3434,6 @@ static OFC_INT gssapi_server_mech_step(OFC_VOID *conn_context,
 	  real_input_token.value = (OFC_VOID *) clientin;
 	  real_input_token.length = clientinlen ;
 	}
-
-      req_flags = GSS_C_INTEG_FLAG ;
 
       result = spnego_sarg (text,
 			    input_token,
@@ -4113,7 +4100,7 @@ static OFC_INT gssapi_client_mech_step(OFC_VOID *conn_context,
   gss_buffer_t input_token, output_token;
   gss_buffer_desc real_input_token, real_output_token;
   OFC_INT result = SASL_OK ;
-  OM_uint32 req_flags = 0, out_req_flags = 0;
+  OM_uint32 out_req_flags = 0;
 
   input_token = &real_input_token;
   output_token = &real_output_token;
@@ -4136,8 +4123,6 @@ static OFC_INT gssapi_client_mech_step(OFC_VOID *conn_context,
 	  real_input_token.value = (OFC_VOID *)serverin;
 	  real_input_token.length = serverinlen;
 	}
-      /* Setup req_flags properly */
-      req_flags = GSS_C_INTEG_FLAG;
 
       result = spnego_initial(text,
 			      prompt_need,
@@ -4194,9 +4179,6 @@ static OFC_INT gssapi_client_mech_step(OFC_VOID *conn_context,
 	  real_input_token.value = (OFC_VOID *)serverin;
 	  real_input_token.length = serverinlen;
 	}
-      /* Setup req_flags properly */
-      req_flags = GSS_C_INTEG_FLAG;
-
       result = spnego_reply(text,
 			    prompt_need,
 			    input_token,

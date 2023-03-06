@@ -112,7 +112,6 @@ int of_security_encode64(const char *_in,
     const unsigned char *in = (const unsigned char *)_in;
     unsigned char *out = (unsigned char *)_out;
     unsigned char oval;
-    char *blah;
     unsigned olen;
 
     /* check params */
@@ -128,7 +127,6 @@ int of_security_encode64(const char *_in,
     }
 
     /* Do the work... */
-    blah = (char *) out;
     while (inlen >= 3) {
       /* user provided max buffer size; make sure we don't go over it */
         *out++ = basis_64[in[0] >> 2];
@@ -275,25 +273,6 @@ int of_security_mkchal(sasl_conn_t *conn,
 
   return (int) ofc_strlen(buf);
 }
-
-  /* borrowed from larry. probably works :)
-   * probably is also in acap server somewhere
-   */
-int of_security_utf8verify(const char *str, unsigned len)
-{
-  unsigned i;
-  for (i = 0; i < len; i++) {
-    /* how many octets? */
-    int seqlen = 0;
-    while (str[i] & (0x80 >> seqlen)) ++seqlen;
-    if (seqlen == 0) continue; /* this is a valid US-ASCII char */
-    if (seqlen == 1) return SASL_BADPROT; /* this shouldn't happen here */
-    if (seqlen > 6) return SASL_BADPROT; /* illegal */
-    while (--seqlen)
-      if ((str[++i] & 0xC0) != 0xF0) return SASL_BADPROT; /* needed a 10 octet */
-  }
-  return SASL_OK;
-}      
 
 /* 
  * To see why this is really bad see RFC 1750

@@ -79,7 +79,6 @@ typedef struct sasl_utils {
     /* mechanism utility functions (same as above): */
     int (*mkchal)(sasl_conn_t *conn, char *buf, unsigned maxlen,
 		  unsigned hostflag);
-    int (*utf8verify)(const char *str, unsigned len);
     void (*rand)(sasl_rand_t *rpool, char *buf, unsigned len);
     void (*churn)(sasl_rand_t *rpool, const char *data, unsigned len);
 

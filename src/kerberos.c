@@ -1592,6 +1592,7 @@ void destroy_ccache (const char *);
  * GSS credential, the application supplied identity, and the default
  * GSS credential, in that order. Then, acquire credentials.
  */
+#if defined(__ANDROID__) || defined(__APPLE__)
 static int
 gs2_get_init_creds(context_t *text,
                    sasl_client_params_t *params,
@@ -1820,6 +1821,7 @@ gs2_get_init_creds(context_t *text,
   gss_release_buffer(&min_stat, &cred_authid);
   return result;
 }
+#endif
 
 static int gssapi_client_mech_step(void *conn_context,
 				   sasl_client_params_t *params,

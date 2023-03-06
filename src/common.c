@@ -1437,11 +1437,7 @@ _sasl_getsimple(void *context,
 		const char ** result,
 		OFC_SIZET *len)
 {
-  sasl_conn_t *conn;
-
   if (! context || ! result) return SASL_BADPARAM;
-
-  conn = (sasl_conn_t *)context;
 
   switch(id) {
   case SASL_CB_AUTHNAME:
@@ -1816,7 +1812,6 @@ of_security_alloc_utils(sasl_conn_t *conn,
   utils->hmac_md5_precalc = &of_security_hmac_md5_precalc;
   utils->hmac_md5_import = &of_security_hmac_md5_import;
   utils->mkchal = &of_security_mkchal;
-  utils->utf8verify = &of_security_utf8verify;
   utils->rand=&of_security_rand;
   utils->churn=&of_security_churn;  
   utils->checkpass=OFC_NULL;

@@ -54,12 +54,6 @@ LIBSASL_API int of_security_encode64(const char *in, unsigned inlen,
 LIBSASL_API int of_security_mkchal(sasl_conn_t *conn, char *buf, 
 				 unsigned maxlen, unsigned hostflag);
 
-/* verify a string is valid UTF-8
- * if len == 0, strlen(str) will be used.
- * returns SASL_BADPROT on error, SASL_OK on success
- */
-LIBSASL_API int of_security_utf8verify(const char *str, unsigned len);
-
 /* create random pool seeded with OS-based params */
 LIBSASL_API int of_security_randcreate(sasl_rand_t **rpool);
 
