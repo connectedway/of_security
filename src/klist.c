@@ -118,6 +118,82 @@ list_all_ccaches()
 
 }
 
+int kinit(const char *principal, const char *password)
+{
+  krb5_context ctx = NULL;
+  krb5_ccache out_cc = NULL;
+  krb5_principal me = NULL;
+  krb5_get_init_creds_opt *options = NULL;
+  krb5_creds my_creds;
+  int ret;
+
+  ret = krb5_init_context(&ctx);
+  if (ret)
+    {
+      ofc_printf("Unable to Initialize KRB5 context for Authentication\n");
+    }
+  else
+    {
+      ret = krb5_cc_default(ctx, &out_cc);
+      if (ret)
+        {
+          ofc_printf("Unable to get the default cache\n");
+        }
+      else
+        {
+          ret = krb5_get_init_creds_opt_alloc (ctx, &options);
+          if (ret)
+            {
+              ofc_printf("Unable to get initial credential options\n");
+            }
+          else
+            {
+              ret = krb5_get_init_creds_opt_set_out_ccache(ctx,
+                                                           options,
+                                                           out_cc);
+              if (ret)
+                {
+                  ofc_printf("Unable to set output cache\n");
+                }
+              else
+                {
+                  ret = krb5_parse_name_flags(ctx, principal, 0, &me);
+                  if (ret)
+                    {
+                      ofc_printf("Unable to parse principal\n");
+                    }
+                  else
+                    {
+                      ofc_memset(&my_creds, 0, sizeof(my_creds));
+                      ret = krb5_get_init_creds_password(ctx,
+                                                         &my_creds,
+                                                         me,
+                                                         password,
+                                                         NULL,
+                                                         NULL,
+                                                         0,
+                                                         NULL,
+                                                         options);
+                      if (ret)
+                        {
+                          ofc_printf("Unable to Authenticate\n");
+                        }
+                      else
+                        {
+                          krb5_free_cred_contents(ctx, &my_creds);
+                        }
+                      krb5_free_principal(ctx, me);
+                    }
+                }
+              krb5_get_init_creds_opt_free(ctx, options);
+            }
+          krb5_cc_close(ctx, out_cc);
+        }
+      krb5_free_context(ctx);
+    }
+  return (ret);
+}
+
 void
 destroy_ccache(const char *princ_name)
 {
