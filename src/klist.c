@@ -1,4 +1,4 @@
-sutils/* -*- mode: c; c-basic-offset: 2; indent-tabs-mode: nil -*- */
+/* -*- mode: c; c-basic-offset: 2; indent-tabs-mode: nil -*- */
 /* clients/klist/klist.c - List contents of credential cache or keytab */
 /*
  * Copyright 1990 by the Massachusetts Institute of Technology.
@@ -33,6 +33,9 @@ sutils/* -*- mode: c; c-basic-offset: 2; indent-tabs-mode: nil -*- */
 #if defined(__linux__)
 #include <krb5.h>
 #include <com_err.h>
+#include <gssapi.h>
+#include <gssapi/gssapi_ext.h>
+#include <gssapi/gssapi_krb5.h>
 #endif
 
 #include <ofc/types.h>
@@ -563,7 +566,7 @@ OFC_CHAR *make_service_name(OFC_TCHAR *server_fqdn)
 {
   OFC_CHAR *service_name;
 
-  service_name = ofc_asprintf("cifs/%S", server_fqdn);
+  service_name = ofc_saprintf("cifs/%S", server_fqdn);
   return (service_name);
 }
 
@@ -595,7 +598,7 @@ void display_status(char *m, OM_uint32 maj_code, OM_uint32 min_code)
  */
 gss_cred_id_t server_creds = OFC_NULL;
 
-void *krb5_acquire_server(OFC_TCHAR *server_fqdn, char *keytab)
+int krb5_acquire_server(OFC_TCHAR *server_fqdn, char *keytab)
 {
   OFC_CHAR *service_name;
   gss_buffer_desc name_buf;
@@ -618,7 +621,7 @@ void *krb5_acquire_server(OFC_TCHAR *server_fqdn, char *keytab)
       service_name = make_service_name (server_fqdn);
 
       name_buf.value = service_name;
-      name_buf.length = strlen(name_buf.value) + 1;
+      name_buf.length = ofc_strlen(name_buf.value) + 1;
 
       maj_stat = gss_import_name(&min_stat, &name_buf,
                                  (gss_OID) GSS_C_NO_OID, &server_name);
