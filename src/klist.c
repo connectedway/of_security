@@ -1,4 +1,4 @@
-/* -*- mode: c; c-basic-offset: 2; indent-tabs-mode: nil -*- */
+sutils/* -*- mode: c; c-basic-offset: 2; indent-tabs-mode: nil -*- */
 /* clients/klist/klist.c - List contents of credential cache or keytab */
 /*
  * Copyright 1990 by the Massachusetts Institute of Technology.
@@ -295,5 +295,101 @@ is_local_tgt(krb5_principal princ, krb5_data *realm)
     return princ->length == 2 && data_eq(princ->realm, *realm) &&
         data_eq_string(princ->data[0], KRB5_TGS_NAME) &&
         data_eq(princ->data[1], *realm);
+}
+
+OFC_CHAR *make_service_name(OFC_TCHAR *server_fqdn)
+{
+  OFC_CHAR *service_name;
+
+  service_name = ofc_asprintf("cifs/%S", server_fqdn);
+  return (service_name);
+}
+
+void display_status_inner(char *m, int type, OM_uint32 code)
+{
+  OM_uint32 msg_ctx;
+  OM_uint32 min_stat;
+  gss_buffer_desc msg;
+
+  for (msg_ctx = 0; msg_ctx == 0; )
+    {
+      gss_display_status(&min_stat, code, type,
+                         GSS_C_NULL_OID, &msg_ctx, &msg);
+      ofc_printf("GSS Error %s: %.*s\n", m, (int)msg.length,
+                 (char *)msg.value);
+      gss_release_buffer(&min_stat, &msg);
+    }
+}
+
+
+void display_status(char *m, OM_uint32 maj_code, OM_uint32 min_code)
+{
+  display_status_inner(m, GSS_C_GSS_CODE, maj_code);
+  display_status_inner(m, GSS_C_MECH_CODE, min_code);
+}
+  
+/*
+ * Returns a blob for the server_creds
+ */
+gss_cred_id_t server_creds = OFC_NULL;
+
+void *krb5_acquire_server(OFC_TCHAR *server_fqdn, char *keytab)
+{
+  OFC_CHAR *service_name;
+  gss_buffer_desc name_buf;
+  gss_name_t server_name;
+  OM_uint32 maj_stat;
+  OM_uint32 min_stat;
+  gss_OID_set mechs = GSS_C_NO_OID_SET;
+  int ret = -1;
+
+  ofc_assert(server_creds == OFC_NULL, "Server is currently attached\n");
+  /*
+   * Set the keytab
+   */
+  if (krb5_gss_register_acceptor_identity(keytab))
+    {
+      ofc_printf("Failed to Register keytab %s\n", keytab);
+    }
+  else
+    {
+      service_name = make_service_name (server_fqdn);
+
+      name_buf.value = service_name;
+      name_buf.length = strlen(name_buf.value) + 1;
+
+      maj_stat = gss_import_name(&min_stat, &name_buf,
+                                 (gss_OID) GSS_C_NO_OID, &server_name);
+
+      if (maj_stat != GSS_S_COMPLETE)
+        {
+          display_status("importing service name", maj_stat, min_stat);
+        }
+      else
+        {
+          maj_stat = gss_acquire_cred(&min_stat, server_name, 0,
+                                      mechs, GSS_C_ACCEPT,
+                                      &server_creds, NULL, NULL);
+          if (maj_stat != GSS_S_COMPLETE)
+            {
+              display_status("acquiring server creds", maj_stat, min_stat);
+            }
+          else
+            {
+              ret = 0;
+            }
+          (void) gss_release_name(&min_stat, &server_name);
+        }
+      ofc_free(service_name);
+    }
+  return ret;
+}
+
+void krb5_release_server(void)
+{
+  OM_uint32 min_stat;
+  
+  gss_release_cred(&min_stat, &server_creds);
+  server_creds = OFC_NULL;
 }
 
