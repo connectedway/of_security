@@ -101,24 +101,32 @@ list_all_ccaches()
     now = (int) (tv_sec);
 
     ret = krb5_init_context(&context);
-    if (ret) {
-        ofc_process_crash ("while initializing krb5");
-    }
-
-    ret = krb5_cccol_cursor_new(context, &cursor);
-    if (ret) {
-      ofc_process_crash("while listing ccache collection");
-    }
-
-    while ((ret = krb5_cccol_cursor_next(context, cursor, &cache)) == 0 &&
-           cache != NULL) {
-        list_ccache(cache) ;
-        krb5_cc_close(context, cache);
-    }
-    krb5_cccol_cursor_free(context, &cursor);
-
-    krb5_free_context (context) ;
-
+    if (ret)
+      {
+        ofc_log(OFC_LOG_WARN,
+                "Could not Initialize KRB5 Context for cache list\n");
+      }
+    else
+      {
+        ret = krb5_cccol_cursor_new(context, &cursor);
+        if (ret)
+          {
+            ofc_log(OFC_LOG_WARN,
+                    "Could not get cache cursor for cache list\n");
+          }
+        else
+          {
+            while ((ret =
+                    krb5_cccol_cursor_next(context, cursor, &cache)) == 0 &&
+                   cache != NULL)
+              {
+                list_ccache(cache) ;
+                krb5_cc_close(context, cache);
+              }
+            krb5_cccol_cursor_free(context, &cursor);
+          }
+        krb5_free_context (context) ;
+      }
 }
 #endif
 int kinit(const char *principal, const char *password)
@@ -133,21 +141,23 @@ int kinit(const char *principal, const char *password)
   ret = krb5_init_context(&ctx);
   if (ret)
     {
-      ofc_printf("Unable to Initialize KRB5 context for Authentication\n");
+      ofc_log(OFC_LOG_WARN,
+              "Unable to Initialize KRB5 context for Authentication\n");
     }
   else
     {
       ret = krb5_cc_default(ctx, &out_cc);
       if (ret)
         {
-          ofc_printf("Unable to get the default cache\n");
+          ofc_log(OFC_LOG_WARN, "Unable to get the default cache\n");
         }
       else
         {
           ret = krb5_get_init_creds_opt_alloc (ctx, &options);
           if (ret)
             {
-              ofc_printf("Unable to get initial credential options\n");
+              ofc_log(OFC_LOG_WARN,
+                      "Unable to get initial credential options\n");
             }
           else
             {
@@ -156,14 +166,14 @@ int kinit(const char *principal, const char *password)
                                                            out_cc);
               if (ret)
                 {
-                  ofc_printf("Unable to set output cache\n");
+                  ofc_log(OFC_LOG_WARN, "Unable to set output cache\n");
                 }
               else
                 {
                   ret = krb5_parse_name_flags(ctx, principal, 0, &me);
                   if (ret)
                     {
-                      ofc_printf("Unable to parse principal\n");
+                      ofc_log(OFC_LOG_WARN, "Unable to parse principal\n");
                     }
                   else
                     {
@@ -179,7 +189,12 @@ int kinit(const char *principal, const char *password)
                                                          options);
                       if (ret)
                         {
-                          ofc_printf("Unable to Authenticate\n");
+                          const char *error_msg;
+                          error_msg = krb5_get_error_message(ctx, ret);
+                          ofc_log(OFC_LOG_WARN,
+                                  "Unable to Authenticate: %s\n",
+                                  error_msg);
+                          krb5_free_error_message(ctx, error_msg);
                         }
                       else
                         {
@@ -207,20 +222,24 @@ destroy_ccache(OFC_VOID)
   ret = krb5_init_context(&ctx);
   if (ret)
     {
-      ofc_process_crash ("while initializing krb5");
-    }
-
-  ret = krb5_cc_default(ctx, &cache);
-  if (ret)
-    {
-      ofc_printf("Unable to get the default cache\n");
+      ofc_log(OFC_LOG_WARN,
+              "Unable to initialize krb5 when destroying cache\n");
     }
   else
     {
-      ret = krb5_cc_destroy (ctx, cache) ;
+      ret = krb5_cc_default(ctx, &cache);
+      if (ret)
+        {
+          ofc_log(OFC_LOG_WARN,
+                  "Unable to get the default cache to destroy\n");
+        }
+      else
+        {
+          ret = krb5_cc_destroy (ctx, cache) ;
+        }
+      krb5_free_context(ctx);
     }
-    krb5_free_context(ctx);
-    return (ret);
+  return (ret);
 }
 
 #if 0
@@ -275,14 +294,15 @@ OFC_CHAR *kcache_active(OFC_VOID)
   ret = krb5_init_context(&ctx);
   if (ret)
     {
-      ofc_printf("Unable to Initialize KRB5 context for Authentication\n");
+      ofc_log(OFC_LOG_WARN,
+              "Unable to Initialize KRB5 context when finding active\n");
     }
   else
     {
       ret = krb5_cc_default(ctx, &ccache);
       if (ret)
         {
-          ofc_printf("Unable to get the default cache\n");
+          ofc_log(OFC_LOG_WARN, "Unable to get the default cache\n");
         }
       else
         {
@@ -290,14 +310,14 @@ OFC_CHAR *kcache_active(OFC_VOID)
           if (ret)
             {
               /* Uninitialized cache file, probably. */
-              ofc_printf("Unable to get principal\n");
+              ofc_log(OFC_LOG_WARN, "Unable to get principal\n");
             }
           else
             {
               ret = krb5_unparse_name(ctx, princ, &princname);
               if (ret)
                 {
-                  ofc_printf("Unable to unparse principal\n");
+                  ofc_log(OFC_LOG_WARN, "Unable to unparse principal\n");
                 }
               else
                 {
@@ -337,14 +357,15 @@ OFC_CHAR *kcache_active_user(OFC_VOID)
   ret = krb5_init_context(&ctx);
   if (ret)
     {
-      ofc_printf("Unable to Initialize KRB5 context for Authentication\n");
+      ofc_log(OFC_LOG_WARN,
+              "Unable to Initialize KRB5 context for Authentication\n");
     }
   else
     {
       ret = krb5_cc_default(ctx, &ccache);
       if (ret)
         {
-          ofc_printf("Unable to get the default cache\n");
+          ofc_log(OFC_LOG_WARN, "Unable to get the default cache\n");
         }
       else
         {
@@ -352,14 +373,14 @@ OFC_CHAR *kcache_active_user(OFC_VOID)
           if (ret)
             {
               /* Uninitialized cache file, probably. */
-              ofc_printf("Unable to get principal\n");
+              ofc_log(OFC_LOG_WARN, "Unable to get principal\n");
             }
           else
             {
               ret = krb5_unparse_name(ctx, princ, &princname);
               if (ret)
                 {
-                  ofc_printf("Unable to unparse principal\n");
+                  ofc_log(OFC_LOG_WARN, "Unable to unparse principal\n");
                 }
               else
                 {
@@ -562,11 +583,11 @@ is_local_tgt(krb5_principal princ, krb5_data *realm)
         data_eq(princ->data[1], *realm);
 }
 
-OFC_CHAR *make_service_name(OFC_TCHAR *server_fqdn)
+OFC_CHAR *make_service_name(OFC_CHAR *server_fqdn)
 {
   OFC_CHAR *service_name;
 
-  service_name = ofc_saprintf("cifs/%S", server_fqdn);
+  service_name = ofc_saprintf("cifs/%s", server_fqdn);
   return (service_name);
 }
 
@@ -576,14 +597,12 @@ void display_status_inner(char *m, int type, OM_uint32 code)
   OM_uint32 min_stat;
   gss_buffer_desc msg;
 
-  for (msg_ctx = 0; msg_ctx == 0; )
-    {
-      gss_display_status(&min_stat, code, type,
-                         GSS_C_NULL_OID, &msg_ctx, &msg);
-      ofc_printf("GSS Error %s: %.*s\n", m, (int)msg.length,
-                 (char *)msg.value);
-      gss_release_buffer(&min_stat, &msg);
-    }
+  msg_ctx = 0;
+  gss_display_status(&min_stat, code, type,
+                     GSS_C_NULL_OID, &msg_ctx, &msg);
+  ofc_log(OFC_LOG_INFO, "GSS Error %s: %.*s\n", m, (int)msg.length,
+          (char *)msg.value);
+  gss_release_buffer(&min_stat, &msg);
 }
 
 
@@ -598,7 +617,7 @@ void display_status(char *m, OM_uint32 maj_code, OM_uint32 min_code)
  */
 gss_cred_id_t server_creds = OFC_NULL;
 
-int krb5_acquire_server(OFC_TCHAR *server_fqdn, char *keytab)
+int krb5_acquire_server(OFC_CHAR *server_fqdn, char *keytab)
 {
   OFC_CHAR *service_name;
   gss_buffer_desc name_buf;
@@ -614,7 +633,7 @@ int krb5_acquire_server(OFC_TCHAR *server_fqdn, char *keytab)
    */
   if (krb5_gss_register_acceptor_identity(keytab))
     {
-      ofc_printf("Failed to Register keytab %s\n", keytab);
+      ofc_log(OFC_LOG_WARN, "Failed to Register keytab %s\n", keytab);
     }
   else
     {
