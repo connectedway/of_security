@@ -2440,6 +2440,34 @@ static OFC_INT spnego_init(server_context_t *text,
 	      result = decode_NegTokenInit(buf + taglen, len, &resp, OFC_NULL) ;
 	      if (result == SASL_OK)
 		{
+		  const oid *desired = OFC_NULL ;
+		  const char *saslname = OFC_NULL;
+
+		  for (int j=0; j < resp.mechTypes.len && desired == OFC_NULL;
+		       j++)
+		    {
+		      if ((resp.mechTypes.val[j].length ==
+			   gss_mech_krb5_gss_oid.length) &&
+			  (ofc_memcmp (resp.mechTypes.val[j].elements,
+				       gss_mech_krb5_gss_oid.elements,
+				       gss_mech_krb5_gss_oid.length *
+				       sizeof (OFC_UINT)) == 0))
+			{
+			  desired = &gss_mech_krb5_oid ;
+			  saslname = "KERBEROS";
+			}
+		      else if ((resp.mechTypes.val[j].length ==
+				gss_mech_ntlmssp_gss_oid.length) &&
+			       (ofc_memcmp (resp.mechTypes.val[j].elements,
+					    gss_mech_ntlmssp_gss_oid.elements,
+					    gss_mech_ntlmssp_gss_oid.length *
+					    sizeof (OFC_UINT)) == 0)) 
+			{
+			  desired = &gss_mech_ntlmssp_oid;
+			  saslname = "NTLM";
+			}
+		    }
+
 		  if (resp.mechToken != OFC_NULL) 
 		    {
 		      sub_token.length = resp.mechToken->length;
@@ -2455,10 +2483,11 @@ static OFC_INT spnego_init(server_context_t *text,
 		  sasl_out = OFC_NULL ;
 		  sasl_outlen = 0 ;
 
-		  result = of_security_server_start (text->pconn, "NTLM", 
-						   sub_token.value, (unsigned) sub_token.length,
-						   &sasl_out, &sasl_outlen) ;
-
+		  result =
+		    of_security_server_start (text->pconn, saslname, 
+					      sub_token.value,
+					      (unsigned) sub_token.length,
+					      &sasl_out, &sasl_outlen) ;
 
 		  output_token->value = ofc_malloc(sasl_outlen);
 		  if (output_token->value == OFC_NULL)
@@ -3228,6 +3257,7 @@ static OFC_INT spnego_server_init(server_context_t *text,
 
   ofc_memset (&token_init, 0, sizeof(token_init)) ;
 
+  result = add_mech(&token_init.mechTypes, &gss_mech_krb5_oid) ;
   result = add_mech(&token_init.mechTypes, &gss_mech_ntlmssp_oid) ;
 
   if (result == SASL_OK)

@@ -693,10 +693,8 @@ int of_security_server_init(const sasl_callback_t *callbacks,
     /* load internal plugins */
     of_security_server_add_plugin("ntlm", &of_security_ntlm_server_plug_init) ;
     of_security_server_add_plugin("gssapi", &of_security_gssapiv2_server_plug_init) ;
-#if 0
 #if defined(OFC_KERBEROS)
     of_security_server_add_plugin("kerberos", &of_security_kerberos_server_plug_init) ;
-#endif
 #endif
     of_security_auxprop_add_plugin("of_security_db", &of_security_db_auxprop_plug_init) ;
 

@@ -768,6 +768,7 @@ gssapi_server_mech_new(void *glob_context,
 {
     context_t *text;
     
+    ofc_printf("kerberos server_mech_new\n");
     text = sasl_gss_new_context(params->utils);
     if (text == NULL) {
 	MEMERROR(params->utils->conn);
@@ -809,6 +810,7 @@ gssapi_server_mech_authneg(context_t *text,
     gss_name_t client_name_MN = NULL, without = NULL;
     gss_OID mech_type;
 	
+    ofc_printf("kerberos server_mech_authneg\n");
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL; output_token->length = 0;
@@ -1130,6 +1132,7 @@ gssapi_server_mech_ssfcap(context_t *text,
     sasl_ssf_t mech_ssf;
     int ret;
 
+    ofc_printf("kerberos server_mech_ssfcap\n");
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL; output_token->length = 0;
@@ -1268,6 +1271,7 @@ gssapi_server_mech_ssfreq(context_t *text,
     OM_uint32 maj_stat = 0, min_stat = 0;
     int layerchoice;
 	
+    ofc_printf("kerberos server_mech_ssfreq\n");
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL; output_token->length = 0;
@@ -1400,6 +1404,7 @@ gssapi_server_mech_step(void *conn_context,
     context_t *text = (context_t *) conn_context;
     int ret;
 
+    ofc_printf("kerberos server_mech_step\n");
     if (!serverout) {
 	PARAMERROR(params->utils->conn);
 	return SASL_BADPARAM;
@@ -1470,7 +1475,7 @@ gssapi_server_mech_step(void *conn_context,
 static sasl_server_plug_t kerberos_server_plugins[] = 
 {
     {
-	"GSSAPI",			/* mech_name */
+	"KERBEROS",			/* mech_name */
 	K5_MAX_SSF,			/* max_ssf */
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOACTIVE
