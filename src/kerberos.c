@@ -57,10 +57,12 @@
 #endif
 
 #include "ofc/config.h"
+#include "ofc/libc.h"
 #include "of_security/saslint.h"
 #include "of_security/sasl.h"
 #include "of_security/saslplug.h"
 #include "of_security/plugin_common.h"
+#include "of_smb/persist.h"
 
 #if defined(OFC_KERBEROS)
 /*****************************  Common Section  *****************************/
@@ -809,6 +811,7 @@ gssapi_server_mech_authneg(context_t *text,
     gss_buffer_desc name_without_realm;
     gss_name_t client_name_MN = NULL, without = NULL;
     gss_OID mech_type;
+    const char *keytab;
 	
     ofc_printf("kerberos server_mech_authneg\n");
     input_token = &real_input_token;
@@ -857,9 +860,14 @@ gssapi_server_mech_authneg(context_t *text,
 	    text->server_creds = GSS_C_NO_CREDENTIAL;
 	}
 
-	if (krb5_gss_register_acceptor_identity("/home/rschmitt/cifs.keytab")) {
-	  ofc_printf("Failed to register keytab\n");
-	}
+	of_smb_persist_keytab(&keytab);
+	if (keytab != NULL)
+	  {
+	    if (krb5_gss_register_acceptor_identity(keytab))
+	      {
+		ofc_log(OFC_LOG_WARN, "Failed to register keytab\n");
+	      }
+	  }
 
 	/* If caller didn't provide creds already */
 	if ( server_creds == GSS_C_NO_CREDENTIAL) {
