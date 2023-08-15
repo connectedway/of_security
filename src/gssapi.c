@@ -1991,7 +1991,7 @@ gssapi_server_mech_new(OFC_VOID *glob_context,
 				       params->ipremoteport,
 				       OFC_NULL, 0, 
 				       (sasl_conn_t **) &text->pconn) ;
-      
+
 	if (result == SASL_OK)
 	  {
 	    *conn_context = text;

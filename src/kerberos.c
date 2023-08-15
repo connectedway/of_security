@@ -832,12 +832,12 @@ gssapi_server_mech_authneg(context_t *text,
 	    return SASL_NOMEM;
 #endif
 	}
-	sprintf(name_token.value,"%s@%s", params->service, params->serverFQDN);
+	sprintf(name_token.value,"%s/%s", params->service, params->serverFQDN);
 
 	GSS_LOCK_MUTEX_CTX(params->utils, text);
 	maj_stat = gss_import_name (&min_stat,
 				    &name_token,
-				    GSS_C_NT_HOSTBASED_SERVICE,
+				    (gss_OID) GSS_C_NO_OID,
 				    &text->server_name);
 	GSS_UNLOCK_MUTEX_CTX(params->utils, text);
 
@@ -855,6 +855,10 @@ gssapi_server_mech_authneg(context_t *text,
 	    maj_stat = gss_release_cred(&min_stat, &text->server_creds);
 	    GSS_UNLOCK_MUTEX_CTX(params->utils, text);
 	    text->server_creds = GSS_C_NO_CREDENTIAL;
+	}
+
+	if (krb5_gss_register_acceptor_identity("/home/rschmitt/cifs.keytab")) {
+	  ofc_printf("Failed to register keytab\n");
 	}
 
 	/* If caller didn't provide creds already */
