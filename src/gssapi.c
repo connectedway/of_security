@@ -942,7 +942,7 @@ static OFC_INT gssapi_spnego_decapsulate(gss_buffer_t input_token_buffer,
   OFC_UCHAR *p ;
   OFC_UINT32 ret ;
 
-  if (inbut_token_buffer == GSS_C_NO_BUFFER)
+  if (input_token_buffer == GSS_C_NO_BUFFER)
     {
       ret = SASL_NOMECH ;
     }
