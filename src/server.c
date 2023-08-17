@@ -1356,7 +1356,7 @@ int of_security_server_step(sasl_conn_t *conn,
 	 */
 	if(*serverout && !(conn->flags & SASL_SUCCESS_DATA)) {
 	    s_conn->sent_last = 1;
-	    ret = SASL_CONTINUE;
+	    ret = SASL_OK;
 	}
 	if(!conn->oparams.maxoutbuf) {
 	    conn->oparams.maxoutbuf = conn->props.maxbufsize;

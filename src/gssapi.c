@@ -942,25 +942,32 @@ static OFC_INT gssapi_spnego_decapsulate(gss_buffer_t input_token_buffer,
   OFC_UCHAR *p ;
   OFC_UINT32 ret ;
 
-  p = input_token_buffer->value;
-  ret = gssapi_verify_mech_header(&p,
-				  input_token_buffer->length,
-				  mech);
-  if (ret == SASL_OK) 
+  if (inbut_token_buffer == GSS_C_NO_BUFFER)
     {
-      *buf_len = input_token_buffer->length - 
-	(p - (OFC_UCHAR *) input_token_buffer->value);
-      *buf = p;
+      ret = SASL_NOMECH ;
     }
   else
     {
-      /* 
-       * If there is no gssapi header, just ignore it.  Not all implementations
-       * put a gssapi wrapper
-       */
-      *buf_len = input_token_buffer->length ;
-      *buf = input_token_buffer->value ;
-      ret = SASL_NOMECH ;
+      p = input_token_buffer->value;
+      ret = gssapi_verify_mech_header(&p,
+				      input_token_buffer->length,
+				      mech);
+      if (ret == SASL_OK) 
+	{
+	  *buf_len = input_token_buffer->length - 
+	    (p - (OFC_UCHAR *) input_token_buffer->value);
+	  *buf = p;
+	}
+      else
+	{
+	  /* 
+	   * If there is no gssapi header, just ignore it.  Not all implementations
+	   * put a gssapi wrapper
+	   */
+	  *buf_len = input_token_buffer->length ;
+	  *buf = input_token_buffer->value ;
+	  ret = SASL_NOMECH ;
+	}
     }
   return (ret) ;
 }
@@ -1958,6 +1965,7 @@ typedef struct server_context {
   OFC_CHAR *user ;
   OFC_CHAR *authid ;
   OFC_INT use_spnego ;
+  const oid *mech_oid;
 } server_context_t;
 
 static int 
@@ -2473,6 +2481,7 @@ static OFC_INT spnego_init(server_context_t *text,
 		      sub_token.length = resp.mechToken->length;
 		      sub_token.value  = 
 			(OFC_VOID *) resp.mechToken->data;
+		      text->mech_oid = desired;
 		    } 
 		  else 
 		    {
@@ -2679,8 +2688,8 @@ static OFC_INT spnego_xreply(server_context_t *text,
 	}
       else
 	{
-	  result = der_get_oid(gss_mech_ntlmssp_oid.elements,
-			       gss_mech_ntlmssp_oid.length,
+	  result = der_get_oid(text->mech_oid->elements,
+			       text->mech_oid->length,
 			       resp.supportedMech,
 			       OFC_NULL);
 	  if (result == SASL_OK) 
@@ -3418,7 +3427,26 @@ static OFC_INT gssapi_server_mech_step(OFC_VOID *conn_context,
 				output_token,
 				&out_req_flags) ;
 
-	  if ((result == SASL_OK) || (result == SASL_CONTINUE))
+	  if (result == SASL_OK)
+	    {
+	      OFC_INT nested_result ;
+
+	      text->user = ofc_strdup (text->pconn->oparams.user) ;
+	      text->authid = ofc_strdup (text->pconn->oparams.authid) ;
+	      oparams->user = text->user ;
+	      oparams->authid = text->authid ;
+
+	      if (text->use_spnego)
+		{
+		  nested_result = spnego_sreply (text, input_token,
+						 output_token,
+						 &out_req_flags) ;
+		  if (nested_result != SASL_OK)
+		    result = nested_result ;
+		}
+	    }
+	      
+	  if (result == SASL_CONTINUE)
 	    {
 	      OFC_INT nested_result ;
 

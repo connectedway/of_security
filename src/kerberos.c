@@ -832,8 +832,8 @@ gssapi_server_mech_authneg(context_t *text,
 	    MEMERROR(params->utils->conn);
 #if 0
 	    sasl_gss_free_context_contents(text);
-	    return SASL_NOMEM;
 #endif
+	    return SASL_NOMEM;
 	}
 	sprintf(name_token.value,"%s/%s", params->service, params->serverFQDN);
 
@@ -896,7 +896,6 @@ gssapi_server_mech_authneg(context_t *text,
 	real_input_token.length = clientinlen;
     }
 
-
     GSS_LOCK_MUTEX_CTX(params->utils, text);
     maj_stat =
 	gss_accept_sec_context(&min_stat,
@@ -929,8 +928,11 @@ gssapi_server_mech_authneg(context_t *text,
     }
     if (output_token->value) {
 	if (serverout) {
-	    ret = of_security_plug_buf_alloc(text->utils, &(text->out_buf),
-				  &(text->out_buf_len), *serveroutlen);
+	    ret =
+	      of_security_plug_buf_alloc(text->utils,
+					 &(text->out_buf),
+					 &(text->out_buf_len),
+					 (*serveroutlen));
 	    if(ret != SASL_OK) {
 		GSS_LOCK_MUTEX_CTX(params->utils, text);
 		gss_release_buffer(&min_stat, output_token);
@@ -1002,6 +1004,7 @@ gssapi_server_mech_authneg(context_t *text,
     }
 
     name_token.value = NULL;
+    name_token.length = 0;
     name_without_realm.value = NULL;
 
     GSS_LOCK_MUTEX_CTX(params->utils, text);
@@ -1025,7 +1028,8 @@ gssapi_server_mech_authneg(context_t *text,
     if (ofc_strchr((char *) name_token.value, (int) '@') != NULL) {
 	/* NOTE: libc malloc, as it is freed below by a gssapi internal
 	 *       function! */
-	name_without_realm.value = params->utils->malloc(ofc_strlen(name_token.value)+1);
+        name_without_realm.value =
+	  params->utils->malloc(ofc_strlen(name_token.value)+1);
 	if (name_without_realm.value == NULL) {
 	    MEMERROR(params->utils->conn);
 	    ret = SASL_NOMEM;
@@ -1078,9 +1082,9 @@ gssapi_server_mech_authneg(context_t *text,
     }
 
     if (equal) {
-	text->authid = strdup(name_without_realm.value);
+	text->authid = ofc_strdup(name_without_realm.value);
     } else {
-	text->authid = strdup(name_token.value);
+	text->authid = ofc_strdup(name_token.value);
     }
 
     if (text->authid == NULL) {
@@ -1093,11 +1097,11 @@ gssapi_server_mech_authneg(context_t *text,
     ret = SASL_OK;
 
     /* Release server creds which are no longer needed */
-     if ( text->server_creds != GSS_C_NO_CREDENTIAL)
-       {
-	 maj_stat = gss_release_cred(&min_stat, &text->server_creds);
-        text->server_creds = GSS_C_NO_CREDENTIAL;
-       }
+    if ( text->server_creds != GSS_C_NO_CREDENTIAL)
+      {
+	maj_stat = gss_release_cred(&min_stat, &text->server_creds);
+	text->server_creds = GSS_C_NO_CREDENTIAL;
+      }
 
   cleanup:
     if (text->server_creds != GSS_C_NO_CREDENTIAL) {
@@ -2009,6 +2013,7 @@ static int gssapi_client_mech_step(void *conn_context,
 		GSS_UNLOCK_MUTEX_CTX(params->utils, text);
 	    }
 	    sasl_gss_free_context_contents(text);
+
 	    return SASL_FAIL;
 	}
 
@@ -2108,12 +2113,15 @@ static int gssapi_client_mech_step(void *conn_context,
 	    gss_release_buffer(&min_stat, &name_token);
 	    GSS_UNLOCK_MUTEX_CTX(params->utils, text);
 	    
-	    if (ret != SASL_OK) return ret;
+	    if (ret != SASL_OK) {
+	      return ret;
+	    }
 	    
 	    if (text->http_mode) {
 		/* HTTP doesn't do any ssf negotiation */
 		text->state = SASL_GSSAPI_STATE_AUTHENTICATED;
 		oparams->doneflag = 1;
+
 		return SASL_OK;
 	    } else if (text->mech_type && text->mech_type == &gss_spnego_oid) {
 		oparams->doneflag = 1;
