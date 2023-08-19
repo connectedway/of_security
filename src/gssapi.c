@@ -2584,6 +2584,23 @@ static OFC_INT spnego_sreply(server_context_t *text,
 
   if (result == SASL_OK)
     {
+      resp.supportedMech = 
+	ofc_malloc(sizeof(*resp.supportedMech));
+      if (resp.supportedMech == OFC_NULL) 
+	{
+	  result = SASL_NOMEM ;
+	}
+      else
+	{
+	  result = der_get_oid(text->mech_oid->elements,
+			       text->mech_oid->length,
+			       resp.supportedMech,
+			       OFC_NULL);
+	}
+    }
+
+  if (result == SASL_OK)
+    {
       buf_size = 1024 ;
       buf = ofc_malloc(buf_size) ;
 
@@ -2671,6 +2688,21 @@ static OFC_INT spnego_xreply(server_context_t *text,
 
   ofc_memset (&resp, 0, sizeof(resp)) ;
 
+  if (output_token != OFC_NULL && output_token->length != 0U)
+    {
+      resp.responseToken =
+	ofc_malloc (sizeof(*resp.responseToken)) ;
+      if (resp.responseToken == OFC_NULL)
+	{
+	  result = SASL_NOMEM ;
+	}
+      else
+	{
+	  resp.responseToken->length = output_token->length ;
+	  resp.responseToken->data = output_token->value ;
+	}
+    }
+
   resp.negState = ofc_malloc (sizeof(*resp.negState)) ;
   if (resp.negState == OFC_NULL)
     {
@@ -2679,7 +2711,10 @@ static OFC_INT spnego_xreply(server_context_t *text,
   else
     {
       *(resp.negState) = accept_incomplete;
+    }
 
+  if (result == SASL_OK)
+    {
       resp.supportedMech = 
 	ofc_malloc(sizeof(*resp.supportedMech));
       if (resp.supportedMech == OFC_NULL) 
@@ -2692,92 +2727,79 @@ static OFC_INT spnego_xreply(server_context_t *text,
 			       text->mech_oid->length,
 			       resp.supportedMech,
 			       OFC_NULL);
-	  if (result == SASL_OK) 
+	}
+    }
+
+  if (result == SASL_OK) 
+    {
+      buf_size = 1024 ;
+      buf = ofc_malloc(buf_size) ;
+
+      do
+	{
+	  OFC_INT nested_result ;
+
+	  nested_result =
+	    encode_NegTokenResp(buf + buf_size - 1,
+				buf_size,
+				&resp, &len) ;
+
+	  if (nested_result != SASL_OK)
+	    result = nested_result ;
+	  else
 	    {
-	      if (output_token != OFC_NULL && output_token->length != 0U)
+	      OFC_SIZET tmp;
+
+	      nested_result =
+		der_put_length_and_tag(buf + buf_size - 
+				       len - 1,
+				       buf_size - len,
+				       len,
+				       ASN1_C_CONTEXT,
+				       CONS,
+				       1,
+				       &tmp);
+	      if (nested_result != SASL_OK)
+		result = nested_result ;
+	      else
+		len += tmp;
+	    }
+
+	  if (result != SASL_OK && result != SASL_CONTINUE) 
+	    {
+	      if (result == SASL_BUFOVER)
 		{
-		  resp.responseToken =
-		    ofc_malloc (sizeof(*resp.responseToken)) ;
-		  if (resp.responseToken == OFC_NULL)
+		  OFC_UCHAR *tmp;
+
+		  buf_size *= 2;
+		  tmp = ofc_realloc(buf, buf_size);
+		  if (tmp == OFC_NULL) 
 		    {
 		      result = SASL_NOMEM ;
 		    }
 		  else
 		    {
-		      resp.responseToken->length = output_token->length ;
-		      resp.responseToken->data = output_token->value ;
-
-		      buf_size = 1024 ;
-		      buf = ofc_malloc(buf_size) ;
-
-		      do
-			{
-			  OFC_INT nested_result ;
-
-			  nested_result =
-			    encode_NegTokenResp(buf + buf_size - 1,
-						buf_size,
-						&resp, &len) ;
-
-			  if (nested_result != SASL_OK)
-			    result = nested_result ;
-			  else
-			    {
-			      OFC_SIZET tmp;
-
-			      nested_result =
-				der_put_length_and_tag(buf + buf_size - 
-						       len - 1,
-						       buf_size - len,
-						       len,
-						       ASN1_C_CONTEXT,
-						       CONS,
-						       1,
-						       &tmp);
-			      if (nested_result != SASL_OK)
-				result = nested_result ;
-			      else
-				len += tmp;
-			    }
-
-			  if (result != SASL_OK && result != SASL_CONTINUE) 
-			    {
-			      if (result == SASL_BUFOVER)
-				{
-				  OFC_UCHAR *tmp;
-
-				  buf_size *= 2;
-				  tmp = ofc_realloc(buf, buf_size);
-				  if (tmp == OFC_NULL) 
-				    {
-				      result = SASL_NOMEM ;
-				    }
-				  else
-				    {
-				      buf = tmp;
-				      result = SASL_OK ;
-				    }
-				}
-			    }
-			}
-		      while (result == SASL_BUFOVER) ;
-
-		      if (result == SASL_OK || result == SASL_CONTINUE)
-			{
-			  OFC_INT nested_result ;
-			  nested_result = 
-			    gssapi_spnego_encapsulate_len(buf + buf_size - len, 
-							  len,
-							  output_token) ;
-			  if (nested_result != SASL_OK)
-			    result = nested_result ;
-			}
-		      ofc_free (buf) ;
+		      buf = tmp;
+		      result = SASL_OK ;
 		    }
 		}
 	    }
 	}
+      while (result == SASL_BUFOVER) ;
+
+      if (result == SASL_OK || result == SASL_CONTINUE)
+	{
+	  OFC_INT nested_result ;
+	  nested_result = 
+	    gssapi_spnego_encapsulate_len(buf + buf_size - len, 
+					  len,
+					  output_token) ;
+	  if (nested_result != SASL_OK)
+	    result = nested_result ;
+	}
+      ofc_free (buf) ;
     }
+
   free_NegTokenResp(&resp) ;
   return (result) ;
 }
@@ -3601,7 +3623,7 @@ gssapi_server_mech_key(void *conn_context,
     {
       if (of_security_server_key(text->pconn, session_key) == SASL_OK)
 	{
-	  ret = OFC_TRUE ;
+	  ret = SASL_OK;
 	}
     }
 
@@ -4352,7 +4374,7 @@ static int gssapi_client_mech_key(void *conn_context,
     {
       if (of_security_client_key(text->pconn, session_key) == SASL_OK)
 	{
-	  ret = OFC_TRUE ;
+	  ret = SASL_OK;
 	}
     }
 

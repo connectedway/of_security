@@ -668,6 +668,11 @@ gss_OID GSS_C_SEC_CONTEXT_SASL_SSF = &gss_sasl_ssf;
 #endif
 #endif
 
+gss_OID_desc gse_sesskey_inq_oid = {
+  11, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x05"
+};
+gss_OID GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY = &gse_sesskey_inq_oid;
+
 static int gssapi_get_ssf(context_t *text, sasl_ssf_t *mech_ssf)
 {
 #ifdef HAVE_GSS_INQUIRE_SEC_CONTEXT_BY_OID
@@ -770,7 +775,6 @@ gssapi_server_mech_new(void *glob_context,
 {
     context_t *text;
     
-    ofc_printf("kerberos server_mech_new\n");
     text = sasl_gss_new_context(params->utils);
     if (text == NULL) {
 	MEMERROR(params->utils->conn);
@@ -813,7 +817,6 @@ gssapi_server_mech_authneg(context_t *text,
     gss_OID mech_type;
     const char *keytab;
 	
-    ofc_printf("kerberos server_mech_authneg\n");
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL; output_token->length = 0;
@@ -1148,7 +1151,6 @@ gssapi_server_mech_ssfcap(context_t *text,
     sasl_ssf_t mech_ssf;
     int ret;
 
-    ofc_printf("kerberos server_mech_ssfcap\n");
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL; output_token->length = 0;
@@ -1287,7 +1289,6 @@ gssapi_server_mech_ssfreq(context_t *text,
     OM_uint32 maj_stat = 0, min_stat = 0;
     int layerchoice;
 	
-    ofc_printf("kerberos server_mech_ssfreq\n");
     input_token = &real_input_token;
     output_token = &real_output_token;
     output_token->value = NULL; output_token->length = 0;
@@ -1420,7 +1421,6 @@ gssapi_server_mech_step(void *conn_context,
     context_t *text = (context_t *) conn_context;
     int ret;
 
-    ofc_printf("kerberos server_mech_step\n");
     if (!serverout) {
 	PARAMERROR(params->utils->conn);
 	return SASL_BADPARAM;
@@ -1488,6 +1488,30 @@ gssapi_server_mech_step(void *conn_context,
     return ret;
 }
 
+static int gssapi_server_mech_key(void *conn_context,
+				  unsigned char session_key[MD5_DIGEST_LENGTH])
+{
+  OM_uint32 maj_stat = 0, min_stat = 0;
+  gss_buffer_set_t set = GSS_C_NO_BUFFER_SET;
+  context_t *text = (context_t *)conn_context;
+
+  maj_stat = gss_inquire_sec_context_by_oid(&min_stat, 
+					    text->gss_ctx,
+					    GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY,
+					    &set);
+
+  if (maj_stat) 
+    {
+      sasl_gss_seterror(text->utils, maj_stat, min_stat) ;
+      return SASL_FAIL;
+    }
+
+  ofc_memcpy (session_key, set->elements[0].value, OFC_MIN(set->elements[0].length, NTLM_SESSKEY_LENGTH)) ;
+
+  maj_stat = gss_release_buffer_set(&min_stat, &set);
+  return SASL_OK;
+}
+
 static sasl_server_plug_t kerberos_server_plugins[] = 
 {
     {
@@ -1510,7 +1534,7 @@ static sasl_server_plug_t kerberos_server_plugins[] =
 	NULL,				/* user_query */
 	NULL,				/* idle */
 	NULL,				/* mech_avail */
-	NULL				/* spare */
+	&gssapi_server_mech_key		/* server key */
     }
 };
 
@@ -2395,11 +2419,6 @@ static int gssapi_client_mech_step(void *conn_context,
 }
 
 
-gss_OID_desc gse_sesskey_inq_oid = {
-  11, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x05"
-};
-gss_OID GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY = &gse_sesskey_inq_oid;
-
 static int gssapi_client_mech_name(void *conn_context,
 				   OFC_TCHAR *name, size_t name_len)
 {
@@ -2415,11 +2434,7 @@ static int gssapi_client_mech_key(void *conn_context,
 
   maj_stat = gss_inquire_sec_context_by_oid(&min_stat, 
 					    text->gss_ctx,
-#if 1
 					    GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY,
-#else
-					    GSS_C_INQ_SSPI_SESSION_KEY,
-#endif
 					    &set);
 
   if (maj_stat) 
@@ -2427,7 +2442,6 @@ static int gssapi_client_mech_key(void *conn_context,
       sasl_gss_seterror(text->utils, maj_stat, min_stat) ;
       return SASL_FAIL;
     }
-
 
   ofc_memcpy (session_key, set->elements[0].value, OFC_MIN(set->elements[0].length, NTLM_SESSKEY_LENGTH)) ;
 
