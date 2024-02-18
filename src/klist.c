@@ -129,6 +129,7 @@ list_all_ccaches()
       }
 }
 #endif
+#if !defined(__APPLE__)
 int kinit(const char *principal, const char *password)
 {
   krb5_context ctx = NULL;
@@ -211,6 +212,7 @@ int kinit(const char *principal, const char *password)
     }
   return (ret);
 }
+#endif
 
 int
 destroy_ccache(OFC_VOID)
