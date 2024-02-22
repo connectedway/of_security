@@ -15,10 +15,12 @@ if(APPLE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
 endif()
 
-set(KSRCS
-    src/kerberos.c
-    src/klist.c
-)
+if(OFC_KERBEROS)
+  set(KSRCS
+      src/kerberos.c
+      src/klist.c
+  )
+endif()
 
 unset(CSRCS)
 if(OF_OPENSSL)
