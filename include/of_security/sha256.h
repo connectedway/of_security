@@ -7,6 +7,8 @@
 extern "C"
 {
 #endif
+  OFC_INT sha256_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[], 
+			const OFC_SIZET *len, OFC_UCHAR *mac);
   OFC_INT hmac_sha256_vector(const OFC_UCHAR *key, OFC_SIZET key_len, 
                              OFC_SIZET num_elem, const OFC_UCHAR *addr[], 
                              const OFC_SIZET *len, OFC_UCHAR *mac);
