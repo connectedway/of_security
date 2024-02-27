@@ -597,7 +597,7 @@ openssl_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
   else
     {
       EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                          EVP_CTRL_GCM_GET_TAG_TAG, tag_size, tag);
+                          EVP_CTRL_GCM_GET_TAG, tag_size, tag);
     }
 #if 0
   of_security_print_key("openssl encrypt signature :", signature);
@@ -682,7 +682,7 @@ openssl_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
   else
     {
       EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                          EVP_CTRL_GCM_GET_TAG_TAG, tag_size, tag);
+                          EVP_CTRL_GCM_GET_TAG, tag_size, tag);
     }
 
 #if 0
