@@ -7,6 +7,7 @@
 struct of_security_cipher_ctx
 {
   OFC_VOID *impl_cipher_ctx;
+  OFC_UINT cipher_algo;
   OFC_UINT8 key[SMB2_KEY_LENGTH];
   OFC_SIZET keylen;
 };

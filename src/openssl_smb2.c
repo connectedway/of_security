@@ -356,6 +356,8 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
+  cipher_ctx->cipher_algo = cipher_algo;
+
   digest_len = SHA256_DIGEST_LENGTH;
   cipher_ctx->keylen = OFC_MIN(digest_len, 16);
 
@@ -404,7 +406,7 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
   EVP_EncryptInit_ex(evp_cipher_ctx,
                      EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
 #else
-  if (cipher_algo == SMB2_AES_128_CCM)
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
     {
       EVP_EncryptInit_ex(evp_cipher_ctx,
                          EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
@@ -412,7 +414,7 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
                           EVP_CTRL_AEAD_SET_IVLEN, 11,
                           NULL);
     }
-  else if (cipher_algo == SMB2_AES_128_GCM)
+  else if (cipher_ctx->cipher_algo == SMB2_AES_128_GCM)
     {
       EVP_EncryptInit_ex(evp_cipher_ctx,
                          EVP_aes_128_gcm(), OFC_NULL, OFC_NULL, OFC_NULL);
@@ -460,6 +462,8 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
+  cipher_ctx->cipher_algo = cipher_algo;
+
   digest_len = SHA256_DIGEST_LENGTH;
   cipher_ctx->keylen = OFC_MIN(digest_len, 16);
 
@@ -505,7 +509,7 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
   EVP_EncryptInit_ex(evp_cipher_ctx,
 		     EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
 #else
-  if (cipher_algo == SMB2_AES_128_CCM)
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
     {
       EVP_EncryptInit_ex(evp_cipher_ctx,
                          EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
@@ -513,7 +517,7 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
                           EVP_CTRL_AEAD_SET_IVLEN, 11,
                           NULL);
     }
-  else if (cipher_algo == SMB2_AES_128_GCM)
+  else if (cipher_ctx->cipher_algo == SMB2_AES_128_GCM)
     {
       EVP_EncryptInit_ex(evp_cipher_ctx,
                          EVP_aes_128_gcm(), OFC_NULL, OFC_NULL, OFC_NULL);
@@ -552,11 +556,14 @@ openssl_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
 
   EVP_EncryptInit_ex(evp_cipher_ctx, NULL, NULL,
 		     cipher_ctx->key, iv);
-  EVP_EncryptUpdate(evp_cipher_ctx,
-		    NULL,
-		    &evp_ctext_size,
-		    NULL,
-		    ptext_size);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_EncryptUpdate(evp_cipher_ctx,
+                        NULL,
+                        &evp_ctext_size,
+                        NULL,
+                        ptext_size);
+    }
 
   EVP_EncryptUpdate(evp_cipher_ctx,
 		    NULL,
@@ -576,9 +583,22 @@ openssl_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
 
   tag = ctext + (ctext_size - tag_size);
   
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-		      EVP_CTRL_AEAD_GET_TAG, tag_size, tag);
-
+  
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+#if 0
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_GET_TAG, tag_size, tag);
+#else
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_CCM_GET_TAG, tag_size, tag);
+#endif
+    }
+  else
+    {
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_GCM_GET_TAG_TAG, tag_size, tag);
+    }
 #if 0
   of_security_print_key("openssl encrypt signature :", signature);
 #endif
@@ -622,11 +642,14 @@ openssl_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
   EVP_EncryptInit_ex(evp_cipher_ctx, NULL, NULL,
 		     cipher_ctx->key, iv);
 
-  EVP_EncryptUpdate(evp_cipher_ctx,
-                    NULL,
-                    &evp_ctext_size,
-                    NULL,
-                    ptext_size);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_EncryptUpdate(evp_cipher_ctx,
+                        NULL,
+                        &evp_ctext_size,
+                        NULL,
+                        ptext_size);
+    }
 
   EVP_EncryptUpdate(evp_cipher_ctx,
                     NULL,
@@ -646,8 +669,21 @@ openssl_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
 
   tag = ctext + (ctext_size - tag_size);
   
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_AEAD_GET_TAG, tag_size, tag);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+#if 0
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_GET_TAG, tag_size, tag);
+#else
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_CCM_GET_TAG, tag_size, tag);
+#endif
+    }
+  else
+    {
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_GCM_GET_TAG_TAG, tag_size, tag);
+    }
 
 #if 0
   of_security_print_key("openssl encrypt signature :", signature);
@@ -693,6 +729,8 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   OFC_UINT8 digest[SHA256_DIGEST_LENGTH];
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
+
+  cipher_ctx->cipher_algo = cipher_algo;
 
   digest_len = SHA256_DIGEST_LENGTH;
   OFC_NET_LTON(&one, 0, 1);
@@ -741,7 +779,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
 		     OFC_NULL, OFC_NULL, OFC_NULL);
 #else
-  if (cipher_algo == SMB2_AES_128_CCM)
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
     {
       EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm,
                          OFC_NULL, OFC_NULL, OFC_NULL);
@@ -750,7 +788,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
                           NULL);
 
     }
-  else if (cipher_algo == gcm)
+  else if (cipher_ctx->cipher_algo == SMB2_AES_128_GCM)
     {
       EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_gcm,
                          OFC_NULL, OFC_NULL, OFC_NULL);
@@ -795,6 +833,8 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
+  cipher_ctx->cipher_algo = cipher_algo;
+
   digest_len = SHA256_DIGEST_LENGTH;
   OFC_NET_LTON(&one, 0, 1);
   OFC_NET_LTON(&len, 0, (16 * 8));
@@ -838,7 +878,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
 		     OFC_NULL, OFC_NULL, OFC_NULL);
 #else
-  if (cipher_algo == SMB2_AES_128_CCM)
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
     {
       EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
 		     OFC_NULL, OFC_NULL, OFC_NULL);
@@ -846,7 +886,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
                           EVP_CTRL_AEAD_SET_IVLEN, 11,
                           NULL);
     }
-  else if (cipher_algo == SMB2_AES_128_GCM)
+  else if (cipher_ctx->cipher_algo == SMB2_AES_128_GCM)
     {
       EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_gcm(),
 		     OFC_NULL, OFC_NULL, OFC_NULL);
@@ -907,17 +947,28 @@ OFC_BOOL openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
   ctext_size -= tag_size;
   tag = ctext + ctext_size ;
 
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size,
-		      tag);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+#if 0
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size,
+                          tag);
+#else
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_CCM_SET_TAG, tag_size,
+                          tag);
+#endif
+    }
 
   EVP_DecryptInit_ex(evp_cipher_ctx, NULL, NULL,
 		     cipher_ctx->key, iv);
 
-  EVP_DecryptUpdate(evp_cipher_ctx,
-		    NULL,
-		    &evp_ptext_size,
-		    NULL,
-		    ctext_size);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_DecryptUpdate(evp_cipher_ctx,
+                        NULL,
+                        &evp_ptext_size,
+                        NULL,
+                        ctext_size);
+    }
 
   EVP_DecryptUpdate(evp_cipher_ctx,
 		    NULL,
@@ -927,16 +978,36 @@ OFC_BOOL openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
    * The tag verify occurs on the last decrypt update as per
    * https://wiki.openssl.org/
    */
-  rc = EVP_DecryptUpdate(evp_cipher_ctx,
-                         ptext,
-                         &evp_ptext_size,
-                         ctext,
-                         ctext_size);
-  if (rc <= 0)
-    /*
-     * verify failed
-     */
-    ret = OFC_FALSE;
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      rc = EVP_DecryptUpdate(evp_cipher_ctx,
+                             ptext,
+                             &evp_ptext_size,
+                             ctext,
+                             ctext_size);
+      if (rc <= 0)
+        /*
+         * verify failed
+         */
+        ret = OFC_FALSE;
+    }
+  else
+    {
+      EVP_DecryptUpdate(evp_cipher_ctx,
+                        ptext,
+                        &evp_ptext_size,
+                        ctext,
+                        ctext_size);
+
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_GCM_SET_TAG, tag_size,
+                          tag);
+
+      rc = EVP_DecryptFinal_ex(evp_cipher_ctx, ptext + evp_ptext_size,
+                               &evp_ptext_size);
+      if (rc <= 0)
+        ret = OFC_FALSE;
+    }
+        
   return (ret);
 }
   
@@ -979,16 +1050,27 @@ openssl_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
       p += len[i];
     }
 
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size,
-		      tag);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+#if 0
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, tag_size,
+                          tag);
+#else
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_CCM_SET_TAG, tag_size,
+                          tag);
+#endif
+    }
 
   EVP_DecryptInit_ex(evp_cipher_ctx, NULL, NULL,
 		     cipher_ctx->key, iv);
-  EVP_DecryptUpdate(evp_cipher_ctx,
-		    NULL,
-		    &evp_ptext_size,
-		    NULL,
-		    ctext_size);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_DecryptUpdate(evp_cipher_ctx,
+                        NULL,
+                        &evp_ptext_size,
+                        NULL,
+                        ctext_size);
+    }
   EVP_DecryptUpdate(evp_cipher_ctx,
 		    NULL,
 		    &evp_ptext_size,
@@ -1000,17 +1082,35 @@ openssl_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
    * The tag verify occurs on the last decrypt update as per
    * https://wiki.openssl.org/
    */
-  rc = EVP_DecryptUpdate(evp_cipher_ctx,
-			 ptext,
-			 &evp_ptext_size,
-			 ctext, ctext_size);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      rc = EVP_DecryptUpdate(evp_cipher_ctx,
+                             ptext,
+                             &evp_ptext_size,
+                             ctext, ctext_size);
+      if (rc <= 0)
+        /*
+         * verify failed
+         */
+        ret = OFC_FALSE;
+    }
+  else
+    {
+      EVP_DecryptUpdate(evp_cipher_ctx,
+                        ptext,
+                        &evp_ptext_size,
+                        ctext, ctext_size);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_GCM_SET_TAG, tag_size,
+                          tag);
+
+      rc = EVP_DecryptFinal_ex(evp_cipher_ctx, ptext + evp_ptext_size,
+                               &evp_ptext_size);
+      if (rc <= 0)
+        ret = OFC_FALSE;
+    }
+
   ofc_free(ctext);
 
-  if (rc <= 0)
-    /*
-     * verify failed
-     */
-    ret = OFC_FALSE;
   return (ret);
 }
 
