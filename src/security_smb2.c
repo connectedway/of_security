@@ -31,15 +31,42 @@ OFC_VOID of_security_print_key(char *heading, OFC_UCHAR *key)
              key[12], key[13], key[14], key[15]);
 }
 
+#if !defined(SMB_PREAUTH)
 struct of_security_signing_ctx *smb2_signing_ctx(OFC_UCHAR *session_key,
                                                  OFC_SIZET session_key_len)
+#else
+struct of_security_signing_ctx *smb2_signing_ctx(OFC_UCHAR *session_key,
+                                                 OFC_SIZET session_key_len,
+                                                 OFC_UCHAR *label,
+                                                 OFC_SIZET label_size,
+                                                 OFC_UCHAR *context,
+                                                 OFC_SIZET context_size)
+#endif
 {
 #if defined(OF_MBEDTLS)
+#if !defined(SMB_PREAUTH)
   return(mbedtls_smb2_signing_ctx(session_key, session_key_len));
+#else
+  return(mbedtls_smb2_signing_ctx(session_key, session_key_len,
+				  label, label_size,
+				  context, context_size));
+#endif
 #elif defined(OF_OPENSSL)
+#if !defined(SMB_PREAUTH)
   return (openssl_smb2_signing_ctx(session_key, session_key_len));
+#else
+  return (openssl_smb2_signing_ctx(session_key, session_key_len,
+				   label, label_size,
+				   context, context_size));
+#endif
 #elif defined(OF_GNUTLS)
+#if !defined(SMB_PREAUTH)
   return (gnutls_smb2_signing_ctx(session_key, session_key_len));
+#else
+  return (gnutls_smb2_signing_ctx(session_key, session_key_len,
+				  label, label_size,
+				  context, context_size));
+#endif
 #endif
 }
 
@@ -89,20 +116,52 @@ OFC_VOID smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 #endif
 }
 
+#if !defined(SMB_PREAUTH)
 struct of_security_cipher_ctx *
 smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 		    OFC_UCHAR *session_key,
 		    OFC_SIZET session_key_len)
+#else
+struct of_security_cipher_ctx *
+smb2_encryption_ctx(OFC_UCHAR *session_key,
+		    OFC_SIZET session_key_len,
+		    OFC_UINT cipher_algo,
+		    OFC_UCHAR *label,
+                    OFC_SIZET label_size,
+		    OFC_UCHAR *context,
+                    OFC_SIZET context_size)
+#endif
 {
 #if defined(OF_MBEDTLS)
+#if !defined(SMB_PREAUTH)
   return (mbedtls_smb2_encryption_ctx(cipher_type,
 				      session_key, session_key_len));
+#else  
+  return (mbedtls_smb2_encryption_ctx(session_key, session_key_len,
+				      cipher_algo,
+				      label, label_size,
+				      context, context_size));
+#endif
 #elif defined(OF_OPENSSL)
+#if !defined(SMB_PREAUTH)
   return (openssl_smb2_encryption_ctx(cipher_type, session_key,
 				      session_key_len));
+#else  
+  return (openssl_smb2_encryption_ctx(session_key, session_key_len,
+				      cipher_algo,
+				      label, label_size,
+				      context, context_size));
+#endif
 #elif defined(OF_GNUTLS)
+#if !defined(SMB_PREAUTH)
   return (gnutls_smb2_encryption_ctx(cipher_type,
 				     session_key, session_key_len));
+#else  
+  return (gnutls_smb2_encryption_ctx(session_key, session_key_len,
+				     cipher_algo,
+				     label, label_size,
+				     context, context_size));
+#endif
 #endif
 }
 
@@ -162,20 +221,52 @@ OFC_VOID smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 #endif
 }
   
+#if !defined(SMB_PREAUTH)
 struct of_security_cipher_ctx *
 smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
 		    OFC_UCHAR *session_key,
 		    OFC_SIZET session_key_len)
+#else
+struct of_security_cipher_ctx *
+smb2_decryption_ctx(OFC_UCHAR *session_key,
+		    OFC_SIZET session_key_len,
+		    OFC_UINT cipher_algo,
+		    OFC_UCHAR *label,
+                    OFC_SIZET label_size,
+		    OFC_UCHAR *context,
+                    OFC_SIZET context_size)
+#endif
 {
 #if defined(OF_MBEDTLS)
+#if !defined(SMB_PREAUTH)
   return (mbedtls_smb2_decryption_ctx(cipher_type,
 				      session_key, session_key_len));
+#else
+  return (mbedtls_smb2_decryption_ctx(session_key, session_key_len,
+                                      cipher_algo,
+				      label, label_size,
+				      context, context_size));
+#endif
 #elif defined(OF_OPENSSL)
+#if !defined(SMB_PREAUTH)
   return (openssl_smb2_decryption_ctx(cipher_type, session_key,
 				      session_key_len));
+#else  
+  return (openssl_smb2_decryption_ctx(session_key, session_key_len,
+                                      cipher_algo,
+				      label, label_size,
+				      context, context_size));
+#endif
 #elif defined(OF_GNUTLS)
+#if !defined(SMB_PREAUTH)
   return (gnutls_smb2_decryption_ctx(cipher_type,
 				     session_key, session_key_len));
+#else  
+  return (gnutls_smb2_decryption_ctx(session_key, session_key_len,
+                                     cipher_algo,
+				     label, label_size,
+				     context, context_size));
+#endif
 #endif
 }
 

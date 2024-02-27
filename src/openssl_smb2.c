@@ -30,9 +30,19 @@
 
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
+#if !definedd(SMB_PREAUTH)
 struct of_security_signing_ctx *
 openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
                          OFC_SIZET session_key_len)
+#else
+struct of_security_signing_ctx *
+openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
+                         OFC_SIZET session_key_len,
+			 OFC_UCHAR *label,
+                         OFC_SIZET label_size,
+                         OFC_UCHAR *context,
+                         OFC_SIZET context_size)
+#endif
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -66,9 +76,25 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
 
   EVP_MAC_init(macctx, session_key, session_key_len, params);
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
+#if !defined(SMB_PREAUTH)
   EVP_MAC_update(macctx, (const unsigned char *) "SMB2AESCMAC", 12);
+  ofc_printf("label: %s, label_size %d\n",
+             "SMB2AESCMAC", 12);
+#else
+  EVP_MAC_update(macctx, (const unsigned char *) label, label_size);
+  ofc_printf("label: %s, label_size %d\n",
+             label, label_size);
+#endif
   EVP_MAC_update(macctx, (const unsigned char *) &zero, 1);
+#if !defined(SMB_PREAUTH)
   EVP_MAC_update(macctx, (const unsigned char *) "SmbSign", 8);
+  ofc_printf("context: %s, context_size %d\n",
+             "SmbSign", 8);
+#else
+  EVP_MAC_update(macctx, (const unsigned char *) context, context_size);
+  ofc_printf("context: %s, context_size %d\n",
+             context, context_size);
+#endif
   EVP_MAC_update(macctx, (const unsigned char *) &len, sizeof(len));
 
   EVP_MAC_final(macctx, digest, &digest_len, digest_len);
@@ -95,9 +121,19 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   return (signing_ctx);
 }
 #else
+#if !defined(SMB_PREAUTH)
 struct of_security_signing_ctx *
 openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
-                         OFC_SIZET session_key_len)
+			 OFC_SIZET session_key_len)
+#else
+struct of_security_signing_ctx *
+openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
+                         OFC_SIZET session_key_len,
+			 OFC_UCHAR *label,
+                         OFC_SIZET label_size,
+                         OFC_UCHAR *context,
+                         OFC_SIZET context_size)
+#endif
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -127,9 +163,25 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   HMAC_Init_ex(macctx, session_key, session_key_len, md, NULL);
   
   HMAC_Update(macctx, (const unsigned char *) &one, sizeof(one));
+#if !defined(SMB_PREAUTH)
   HMAC_Update(macctx, (const unsigned char *) "SMB2AESCMAC", 12);
+  ofc_printf("label: %s, label_size %d\n",
+             "SMB2AESCMAC", 12);
+#else
+  HMAC_Update(macctx, (const unsigned char *) label, label_size);
+  ofc_printf("label: %s, label_size %d\n",
+             label, label_size);
+#endif
   HMAC_Update(macctx, (const unsigned char *) &zero, 1);
+#if !defined(SMB_PREAUTH)
   HMAC_Update(macctx, (const unsigned char *) "SmbSign", 8);
+  ofc_printf("context: %s, context_size %d\n",
+             "SmbSign", 8);
+#else
+  HMAC_Update(macctx, (const unsigned char *) context, context_size);
+  ofc_printf("context: %s, context_size %d\n",
+             context, context_size);
+#endif
   HMAC_Update(macctx, (const unsigned char *) &len, sizeof(len));
 	      
   HMAC_Final(macctx, digest, &digest_len);
@@ -275,9 +327,19 @@ openssl_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
+#if !defined(SMB_PREAUTH)
 struct of_security_cipher_ctx *
 openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 			    OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+#else
+struct of_security_cipher_ctx *
+openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
+                            OFC_UINT cipher_algo,
+			    OFC_UCHAR *label,
+                            OFC_SIZET label_size,
+			    OFC_UCHAR *context,
+                            OFC_SIZET context_size)
+#endif
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -313,12 +375,20 @@ openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 
   EVP_MAC_init(macctx, session_key, session_key_len, params);
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
+#if !defined(SMB_PREAUTH)
   EVP_MAC_update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
+#else
+  EVP_MAC_update(macctx, (const unsigned char *) label, label_size);
+#endif  
   EVP_MAC_update(macctx, (const unsigned char *) &zero, 1);
+#if !defined(SMB_PREAUTH)
   if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
     EVP_MAC_update(macctx, (const unsigned char *) "ServerOut", 10);
   else
     EVP_MAC_update(macctx, (const unsigned char *) "ServerIn ", 10);
+#else
+  EVP_MAC_update(macctx, (const unsigned char *) context, context_size);
+#endif
   EVP_MAC_update(macctx, (const unsigned char *) &len, sizeof(len));
   EVP_MAC_final(macctx, digest, &digest_len, digest_len);
   EVP_MAC_CTX_free(macctx);
@@ -330,12 +400,30 @@ openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 #endif
 
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
-
+#if !defined(SMB_PREAUTH)
   EVP_EncryptInit_ex(evp_cipher_ctx,
                      EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-                      EVP_CTRL_AEAD_SET_IVLEN, 11,
-                      NULL);
+#else
+  if (cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_EncryptInit_ex(evp_cipher_ctx,
+                         EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 11,
+                          NULL);
+    }
+  else if (cipher_algo == SMB2_AES_128_GCM)
+    {
+      EVP_EncryptInit_ex(evp_cipher_ctx,
+                         EVP_aes_128_gcm(), OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 12,
+                          NULL);
+    }
+  else
+    ofc_assert(OFC_FALSE, "Invalid Cipher Algorithm");
+  
+#endif  
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
                       EVP_CTRL_AEAD_SET_TAG, 16, OFC_NULL);
 
@@ -344,9 +432,20 @@ openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
   return (cipher_ctx);
 }
 #else
+#if !defined(SMB_PREAUTH)
 struct of_security_cipher_ctx *
 openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 			    OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+#else
+struct of_security_cipher_ctx *
+openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
+                            OFC_UINT cipher_algo,
+			    OFC_UCHAR *label,
+                            OFC_SIZET label_size,
+			    OFC_UCHAR *context,
+                            OFC_SIZET context_size)
+#endif
+  
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -377,12 +476,20 @@ openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 
   HMAC_Init_ex(macctx, session_key, session_key_len, md, NULL);
   HMAC_Update(macctx, (const unsigned char *) &one, sizeof(one));
+#if !defined(SMB_PREAUTH)
   HMAC_Update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
+#else
+  HMAC_Update(macctx, (const unsigned char *) label, label_size);
+#endif
   HMAC_Update(macctx, (const unsigned char *) &zero, 1);
+#if !defined(SMB_PREAUTH)
   if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
     HMAC_Update(macctx, (const unsigned char *) "ServerOut", 10);
   else
     HMAC_Update(macctx, (const unsigned char *) "ServerIn ", 10);
+#else
+  HMAC_Update(macctx, (const unsigned char *) context, context_size);
+#endif
   HMAC_Update(macctx, (const unsigned char *) &len, sizeof(len));
   HMAC_Final(macctx, digest, &digest_len);
   HMAC_CTX_free(macctx);
@@ -394,13 +501,30 @@ openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 #endif
 
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
-
+#if !defined(SMB_PREAUTH)
   EVP_EncryptInit_ex(evp_cipher_ctx,
 		     EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
-
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-		      EVP_CTRL_AEAD_SET_IVLEN, 11,
-		      NULL);
+#else
+  if (cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_EncryptInit_ex(evp_cipher_ctx,
+                         EVP_aes_128_ccm(), OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 11,
+                          NULL);
+    }
+  else if (cipher_algo == SMB2_AES_128_GCM)
+    {
+      EVP_EncryptInit_ex(evp_cipher_ctx,
+                         EVP_aes_128_gcm(), OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 12,
+                          NULL);
+    }
+  else
+    ofc_assert(OFC_FALSE, "Invalid Cipher Algorithm");
+  
+#endif  
   
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
 		      EVP_CTRL_AEAD_SET_TAG, 16, OFC_NULL);
@@ -541,10 +665,21 @@ openssl_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 }
   
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
+#if !defined(SMB_PREAUTH)
 struct of_security_cipher_ctx *
 openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
 			    OFC_UCHAR *session_key,
                             OFC_SIZET session_key_len)
+#else
+struct of_security_cipher_ctx *
+openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
+                            OFC_SIZET session_key_len,
+                            OFC_UINT cipher_algo,
+			    OFC_UCHAR *label,
+                            OFC_SIZET label_size,
+			    OFC_UCHAR *context,
+                            OFC_SIZET context_size)
+#endif
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -576,12 +711,20 @@ openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
 
   EVP_MAC_init(macctx, session_key, session_key_len, params);
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
+#if !defined(SMB_PREAUTH)
   EVP_MAC_update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
+#else
+  EVP_MAC_update(macctx, (const unsigned char *) label, label_size);
+#endif
   EVP_MAC_update(macctx, (const unsigned char *) &zero, 1);
+#if !defined(SMB_PREAUTH)
   if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
     EVP_MAC_update(macctx, (const unsigned char *) "ServerIn ", 10);
   else
     EVP_MAC_update(macctx, (const unsigned char *) "ServerOut", 10);
+#else
+  EVP_MAC_update(macctx, (const unsigned char *) context, context_size);
+#endif
   EVP_MAC_update(macctx, (const unsigned char *) &len, sizeof(len));
   EVP_MAC_final(macctx, digest, &digest_len, digest_len); 
   EVP_MAC_CTX_free(macctx);
@@ -594,21 +737,51 @@ openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
                         decryption_ctx->key);
 #endif
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
+#if !defined(SMB_PREAUTH)
   EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
 		     OFC_NULL, OFC_NULL, OFC_NULL);
+#else
+  if (cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm,
+                         OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 11,
+                          NULL);
 
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-		      EVP_CTRL_AEAD_SET_IVLEN, 11,
-		      NULL);
+    }
+  else if (cipher_algo == gcm)
+    {
+      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_gcm,
+                         OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 12,
+                          NULL);
+    }
+  else
+    ofc_assert(OFC_FALSE, "Invalid Cipher Algorithm");
+
+#endif
 
   cipher_ctx->impl_cipher_ctx = evp_cipher_ctx;
   return (cipher_ctx);
 }
 #else
+#if !defined(SMB_PREAUTH)
 struct of_security_cipher_ctx *
 openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
 			    OFC_UCHAR *session_key,
                             OFC_SIZET session_key_len)
+#else
+struct of_security_cipher_ctx *
+openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
+                            OFC_SIZET session_key_len,
+                            OFC_UINT cipher_algo,
+			    OFC_UCHAR *label,
+                            OFC_SIZET label_size,
+			    OFC_UCHAR *context,
+                            OFC_SIZET context_size)
+#endif
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -635,12 +808,20 @@ openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
 
   HMAC_Init_ex(macctx, session_key, session_key_len, md, NULL);
   HMAC_Update(macctx, (const unsigned char *) &one, sizeof(one));
+#if !defined(SMB_PREAUTH)
   HMAC_Update(macctx, (const unsigned char *) "SMB2AESCCM", 11);
+#else
+  HMAC_Update(macctx, (const unsigned char *) label, label_size);
+#endif
   HMAC_Update(macctx, (const unsigned char *) &zero, 1);
+#if !defined(SMB_PREAUTH)
   if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
     HMAC_Update(macctx, (const unsigned char *) "ServerIn ", 10);
   else
     HMAC_Update(macctx, (const unsigned char *) "ServerOut", 10);
+#else
+  HMAC_Update(macctx, (const unsigned char *) context, context_size);
+#endif
   HMAC_Update(macctx, (const unsigned char *) &len, sizeof(len));
   HMAC_Final(macctx, digest, &digest_len); 
   HMAC_CTX_free(macctx);
@@ -653,15 +834,48 @@ openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
                         decryption_ctx->key);
 #endif
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
+#if !defined(SMB_PREAUTH)
   EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
 		     OFC_NULL, OFC_NULL, OFC_NULL);
+#else
+  if (cipher_algo == SMB2_AES_128_CCM)
+    {
+      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
+		     OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 11,
+                          NULL);
+    }
+  else if (cipher_algo == SMB2_AES_128_GCM)
+    {
+      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_gcm(),
+		     OFC_NULL, OFC_NULL, OFC_NULL);
+      EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
+                          EVP_CTRL_AEAD_SET_IVLEN, 12,
+                          NULL);
+    }
+  else
+    ofc_assert(OFC_FALSE, "Invalid Cipher Algorithm");
+#endif
+#if 0
+  /*
+   * We set the tag inside of the decrypt calls.  Not sure why
+   * we are setting it to null here, but this causes the gcm
+   * cipher to crash.  We could set it to zeros, but I don't see
+   * why we set it at all.  So, this is disabled for now
+   */
+#if 1
+  OFC_UCHAR temp[16] = {'\0','\0','\0','\0','\0','\0','\0','\0',
+                        '\0','\0','\0','\0','\0','\0','\0','\0'};
 
-  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
-		      EVP_CTRL_AEAD_SET_IVLEN, 11,
-		      NULL);
   EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, 16,
-		      NULL);
+                      temp);
+#else
+  EVP_CIPHER_CTX_ctrl(evp_cipher_ctx, EVP_CTRL_AEAD_SET_TAG, 16,
+                      NULL);
 
+#endif
+#endif
   cipher_ctx->impl_cipher_ctx = evp_cipher_ctx;
   return (cipher_ctx);
 }
