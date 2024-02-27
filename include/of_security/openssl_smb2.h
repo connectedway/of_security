@@ -10,19 +10,15 @@
 extern "C"
 {
 #endif
-#if !defined(SMB_PREAUTH)
+  OFC_INT openssl_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
+                                const OFC_SIZET *len, OFC_UCHAR *mac);
   struct of_security_signing_ctx *
   openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
-                           OFC_SIZET session_key_len);
-#else
-struct of_security_signing_ctx *
-openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
-                         OFC_SIZET session_key_len,
-			 OFC_UCHAR *label,
-                         OFC_SIZET label_size,
-                         OFC_UCHAR *context,
-                         OFC_SIZET context_size);
-#endif
+                           OFC_SIZET session_key_len,
+                           OFC_UCHAR *label,
+                           OFC_SIZET label_size,
+                           OFC_UCHAR *context,
+                           OFC_SIZET context_size);
   OFC_VOID
   openssl_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
                            OFC_INT num_elem,
@@ -38,21 +34,14 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   OFC_VOID
   openssl_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx);
 
-#if !defined(SMB_PREAUTH)
   struct of_security_cipher_ctx *
-  openssl_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
-			      OFC_UCHAR *session_key,
-                              OFC_SIZET session_key_len);
-
-#else
-struct of_security_cipher_ctx *
-openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
-                            OFC_UINT cipher_algo,
-			    OFC_UCHAR *label,
-                            OFC_SIZET label_size,
-			    OFC_UCHAR *context,
-                            OFC_SIZET context_size);
-#endif
+  openssl_smb2_encryption_ctx(OFC_UCHAR *session_key,
+                              OFC_SIZET session_key_len,
+                              OFC_UINT cipher_algo,
+                              OFC_UCHAR *label,
+                              OFC_SIZET label_size,
+                              OFC_UCHAR *context,
+                              OFC_SIZET context_size);
   OFC_VOID
   openssl_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
                        OFC_UCHAR *iv, OFC_SIZET iv_size,
@@ -72,21 +61,14 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
   OFC_VOID
   openssl_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx);
 
-#if !defined(SMB_PREAUTH)
   struct of_security_cipher_ctx *
-  openssl_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
-			      OFC_UCHAR *session_key,
-                              OFC_SIZET session_key_len);
-#else
-struct of_security_cipher_ctx *
-openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
-                            OFC_SIZET session_key_len,
-                            OFC_UINT cipher_algo,
-			    OFC_UCHAR *label,
-                            OFC_SIZET label_size,
-			    OFC_UCHAR *context,
-                            OFC_SIZET context_size);
-#endif
+  openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
+                              OFC_SIZET session_key_len,
+                              OFC_UINT cipher_algo,
+                              OFC_UCHAR *label,
+                              OFC_SIZET label_size,
+                              OFC_UCHAR *context,
+                              OFC_SIZET context_size);
   OFC_BOOL openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                                 OFC_UCHAR *iv, OFC_SIZET iv_size,
                                 OFC_UINT8 *aead, OFC_SIZET aead_size,
