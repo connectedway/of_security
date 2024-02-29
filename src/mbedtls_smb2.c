@@ -20,6 +20,7 @@
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/ccm.h>
+#include <mbedtls/gcm.h>
 
 #if defined(__linux__)
 #include <unistd.h>
@@ -27,9 +28,35 @@
 #include <string.h>
 #endif
 
+OFC_INT mbedtls_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
+                              const OFC_SIZET *len, OFC_UCHAR *mac)
+{
+  mbedtls_sha512_context ctx;
+    
+  mbedtls_sha512_init(&ctx);
+
+  for (OFC_INT i = 0 ; i < num_elem ; i++)
+    {
+#if 0
+      mbedtls_sha512_update_ret(&ctx, addr[i], len[i]);
+#else
+      mbedtls_sha512_update(&ctx, addr[i], len[i]);
+#endif
+    }
+#if 0
+  mbedtls_sha512_finish_ret(&ctx, mac);
+#eles
+  mbedtls_sha512_finish(&ctx, mac);
+#endif
+}
+
 struct of_security_signing_ctx *
 mbedtls_smb2_signing_ctx(OFC_UCHAR *session_key,
-                        OFC_SIZET session_key_len)
+                         OFC_SIZET session_key_len,
+                         OFC_UCHAR *label,
+                         OFC_SIZET label_size,
+                         OFC_UCHAR *context,
+                         OFC_SIZET context_size)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -56,11 +83,11 @@ mbedtls_smb2_signing_ctx(OFC_UCHAR *session_key,
   mbedtls_md_hmac_update(&mbedtls_ctx, (const unsigned char *) &one,
                          sizeof(one));
   mbedtls_md_hmac_update(&mbedtls_ctx, 
-                         (const unsigned char *) "SMB2AESCMAC", 12);
+                         (const unsigned char *) label, label_size);
   mbedtls_md_hmac_update(&mbedtls_ctx, 
                          (const unsigned char *) &zero, 1);
   mbedtls_md_hmac_update(&mbedtls_ctx, 
-                         (const unsigned char *) "SmbSign", 8);
+                         (const unsigned char *) context, context_size);
   mbedtls_md_hmac_update(&mbedtls_ctx,
                          (const unsigned char *) &len, sizeof(len));
   mbedtls_md_hmac_finish(&mbedtls_ctx, digest);
@@ -170,8 +197,12 @@ mbedtls_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 }
 
 struct of_security_cipher_ctx *
-mbedtls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
-			    OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+mbedtls_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
+                            OFC_UINT cipher_algo,
+			    OFC_UCHAR *label,
+                            OFC_SIZET label_size,
+			    OFC_UCHAR *context,
+                            OFC_SIZET context_size)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -187,6 +218,8 @@ mbedtls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
+  cipher_ctx->cipher_algo = cipher_algo;
+
   cipher_ctx->keylen = OFC_MIN(digest_len, 16);
 
   OFC_NET_LTON(&one, 0, 1);
@@ -201,15 +234,11 @@ mbedtls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
   mbedtls_md_hmac_update(&mbedtls_ctx, (const unsigned char *) &one,
                          sizeof(one));
   mbedtls_md_hmac_update(&mbedtls_ctx, 
-                         (const unsigned char *) "SMB2AESCCM", 11);
+                         (const unsigned char *) label, label_size);
   mbedtls_md_hmac_update(&mbedtls_ctx, 
                          (const unsigned char *) &zero, 1);
-  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
-    mbedtls_md_hmac_update(&mbedtls_ctx, 
-			   (const unsigned char *) "ServerOut", 10);
-  else
-    mbedtls_md_hmac_update(&mbedtls_ctx, 
-			   (const unsigned char *) "ServerIn ", 10);
+  mbedtls_md_hmac_update(&mbedtls_ctx, 
+                         (const unsigned char *) context, context_size);
   mbedtls_md_hmac_update(&mbedtls_ctx,
                          (const unsigned char *) &len, sizeof(len));
   mbedtls_md_hmac_finish(&mbedtls_ctx, digest);
@@ -223,15 +252,30 @@ mbedtls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
   of_security_print_key("mbedtls Encryption Key: ", cipher_ctx->key);
 #endif
 
-  mbedtls_ccm_context *mbedtls_ccm_ctx;
-  mbedtls_ccm_ctx = ofc_malloc(sizeof(mbedtls_ccm_context));
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      mbedtls_ccm_context *mbedtls_ccm_ctx;
+      mbedtls_ccm_ctx = ofc_malloc(sizeof(mbedtls_ccm_context));
   
-  mbedtls_ccm_init(mbedtls_ccm_ctx);
-  mbedtls_ccm_setkey(mbedtls_ccm_ctx, MBEDTLS_CIPHER_ID_AES,
-                     (const unsigned char *) cipher_ctx->key,
-                     cipher_ctx->keylen * 8);
+      mbedtls_ccm_init(mbedtls_ccm_ctx);
+      mbedtls_ccm_setkey(mbedtls_ccm_ctx, MBEDTLS_CIPHER_ID_AES,
+                         (const unsigned char *) cipher_ctx->key,
+                         cipher_ctx->keylen * 8);
 
-  cipher_ctx->impl_cipher_ctx = mbedtls_ccm_ctx;
+      cipher_ctx->impl_cipher_ctx = mbedtls_ccm_ctx;
+    }
+  else
+    {
+      mbedtls_gcm_context *mbedtls_gcm_ctx;
+      mbedtls_gcm_ctx = ofc_malloc(sizeof(mbedtls_gcm_context));
+  
+      mbedtls_gcm_init(mbedtls_gcm_ctx);
+      mbedtls_gcm_setkey(mbedtls_gcm_ctx, MBEDTLS_CIPHER_ID_AES,
+                         (const unsigned char *) cipher_ctx->key,
+                         cipher_ctx->keylen * 8);
+
+      cipher_ctx->impl_cipher_ctx = mbedtls_gcm_ctx;
+    }
   return (cipher_ctx);
 }
 
@@ -243,18 +287,37 @@ mbedtls_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
                      OFC_UINT8 *ptext, OFC_SIZET ptext_size,
                      OFC_UINT8 *ctext, OFC_SIZET ctext_size)
 {
-  mbedtls_ccm_context *mbedtls_ccm_ctx;
   size_t outlen = 0;
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      mbedtls_ccm_context *mbedtls_ccm_ctx;
   
-  mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
-  mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_ENCRYPT, iv, iv_size);
-  mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, ptext_size, tag_size);
-  mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
+      mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
+      mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_ENCRYPT, iv, iv_size);
+      mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, ptext_size, tag_size);
+      mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
 
-  mbedtls_ccm_update(mbedtls_ccm_ctx, ptext, ptext_size,
-                     ctext+outlen, ptext_size, &outlen);
+      mbedtls_ccm_update(mbedtls_ccm_ctx, ptext, ptext_size,
+                         ctext+outlen, ptext_size, &outlen);
 
-  mbedtls_ccm_finish(mbedtls_ccm_ctx, ctext+outlen, tag_size);
+      mbedtls_ccm_finish(mbedtls_ccm_ctx, ctext+outlen, tag_size);
+    }
+  else
+    {
+      mbedtls_gcm_context *mbedtls_gcm_ctx;
+  
+      mbedtls_gcm_ctx = cipher_ctx->impl_cipher_ctx;
+      mbedtls_gcm_starts(mbedtls_gcm_ctx, MBEDTLS_GCM_ENCRYPT, iv, iv_size);
+      mbedtls_gcm_update_ad(mbedtls_gcm_ctx, aead, aead_size);
+
+      mbedtls_gcm_update(mbedtls_gcm_ctx, ptext, ptext_size,
+                         ctext+outlen, ptext_size, &outlen);
+
+      mbedtls_gcm_finish(mbedtls_gcm_ctx, 
+                         ctext+outlen, ptext_size-outlen,
+                         &outlen,
+                         ctext+ptext_size, tag_size);
+    }
 
 #if 0
   of_security_print_key("mbedtls encrypt signature :",
@@ -271,34 +334,66 @@ mbedtls_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                             OFC_UCHAR **addr, OFC_SIZET *len,
                             OFC_UINT8 *ctext, OFC_SIZET ctext_size)
 {
-  mbedtls_ccm_context *mbedtls_ccm_ctx;
   size_t mbedtls_ctext_size = ctext_size;
   size_t inlen = 0;
   size_t outlen;
   int rc;
   
-  mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
-  /*
-   * Get size of input
-   */
-  for (int i = 0 ; i < num_elem; i++)
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
     {
-      inlen += len[i];
+      mbedtls_ccm_context *mbedtls_ccm_ctx;
+      mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
+      /*
+       * Get size of input
+       */
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          inlen += len[i];
+        }
+
+      rc = mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_ENCRYPT, iv, iv_size);
+      rc = mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
+      rc = mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
+
+      outlen = 0;
+      OFC_OFFT offset = outlen;
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          rc = mbedtls_ccm_update(mbedtls_ccm_ctx, addr[i], len[i],
+                                  ctext+offset, len[i], &outlen);
+          offset += outlen;
+        }
+      rc = mbedtls_ccm_finish(mbedtls_ccm_ctx, ctext+offset, tag_size);
     }
-
-  rc = mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_ENCRYPT, iv, iv_size);
-  rc = mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
-  rc = mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
-
-  outlen = 0;
-  OFC_OFFT offset = outlen;
-  for (int i = 0 ; i < num_elem; i++)
+  else
     {
-      rc = mbedtls_ccm_update(mbedtls_ccm_ctx, addr[i], len[i],
-                         ctext+offset, len[i], &outlen);
-      offset += outlen;
+      mbedtls_gcm_context *mbedtls_gcm_ctx;
+      mbedtls_gcm_ctx = cipher_ctx->impl_cipher_ctx;
+      /*
+       * Get size of input
+       */
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          inlen += len[i];
+        }
+
+      rc = mbedtls_gcm_starts(mbedtls_gcm_ctx, MBEDTLS_GCM_ENCRYPT, iv, iv_size);
+      rc = mbedtls_gcm_update_ad(mbedtls_gcm_ctx, aead, aead_size);
+
+      outlen = 0;
+      OFC_OFFT offset = outlen;
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          rc = mbedtls_gcm_update(mbedtls_gcm_ctx, addr[i], len[i],
+                                  ctext+offset, len[i], &outlen);
+          offset += outlen;
+        }
+
+      rc = mbedtls_gcm_finish(mbedtls_gcm_ctx, 
+                              ctext+offset, ctext_size-offset,
+                              &outlen,
+                              ctext+inlen, tag_size);
     }
-  rc = mbedtls_ccm_finish(mbedtls_ccm_ctx, ctext+offset, tag_size);
 
 #if 0
   of_security_print_key("mbedtls encrypt signature :",
@@ -310,18 +405,34 @@ OFC_VOID
 mbedtls_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 {
 
-  mbedtls_ccm_context *mbedtls_ccm_ctx =
-    cipher_ctx->impl_cipher_ctx;
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      mbedtls_ccm_context *mbedtls_ccm_ctx =
+        cipher_ctx->impl_cipher_ctx;
 
-  mbedtls_ccm_free(mbedtls_ccm_ctx);
-  ofc_free(mbedtls_ccm_ctx);
+      mbedtls_ccm_free(mbedtls_ccm_ctx);
+      ofc_free(mbedtls_ccm_ctx);
+    }
+  else
+    {
+      mbedtls_gcm_context *mbedtls_gcm_ctx =
+        cipher_ctx->impl_cipher_ctx;
+
+      mbedtls_gcm_free(mbedtls_gcm_ctx);
+      ofc_free(mbedtls_gcm_ctx);
+    }
+
   ofc_free(cipher_ctx);
 }
   
 struct of_security_cipher_ctx *
-mbedtls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
-			    OFC_UCHAR *session_key,
-			    OFC_SIZET session_key_len)
+mbedtls_smb2_decryption_ctx(OFC_UCHAR *session_key,
+			    OFC_SIZET session_key_len,
+                            OFC_UINT cipher_algo,
+			    OFC_UCHAR *label,
+                            OFC_SIZET label_size,
+			    OFC_UCHAR *context,
+                            OFC_SIZET context_size)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -350,15 +461,11 @@ mbedtls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
   mbedtls_md_hmac_update(&mbedtls_ctx, (const unsigned char *) &one,
                          sizeof(one));
   mbedtls_md_hmac_update(&mbedtls_ctx, 
-                         (const unsigned char *) "SMB2AESCCM", 11);
+                         (const unsigned char *) label, label_size);
   mbedtls_md_hmac_update(&mbedtls_ctx, 
                          (const unsigned char *) &zero, 1);
-  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
-    mbedtls_md_hmac_update(&mbedtls_ctx, 
-			   (const unsigned char *) "ServerIn ", 10);
-  else
-    mbedtls_md_hmac_update(&mbedtls_ctx, 
-			   (const unsigned char *) "ServerOut", 10);
+  mbedtls_md_hmac_update(&mbedtls_ctx, 
+                         (const unsigned char *) context, context_size);
   mbedtls_md_hmac_update(&mbedtls_ctx,
                          (const unsigned char *) &len, sizeof(len));
                                     
@@ -373,15 +480,30 @@ mbedtls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
   of_security_print_key("mbedtls Decryption Key: ", cipher_ctx->key);
 #endif
 
-  mbedtls_ccm_context *mbedtls_ccm_ctx;
-  mbedtls_ccm_ctx = ofc_malloc(sizeof(mbedtls_ccm_context));
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      mbedtls_ccm_context *mbedtls_ccm_ctx;
+      mbedtls_ccm_ctx = ofc_malloc(sizeof(mbedtls_ccm_context));
   
-  mbedtls_ccm_init (mbedtls_ccm_ctx);
-  mbedtls_ccm_setkey (mbedtls_ccm_ctx, MBEDTLS_CIPHER_ID_AES,
-                      (const unsigned char *) cipher_ctx->key,
-                      cipher_ctx->keylen * 8);
+      mbedtls_ccm_init (mbedtls_ccm_ctx);
+      mbedtls_ccm_setkey (mbedtls_ccm_ctx, MBEDTLS_CIPHER_ID_AES,
+                          (const unsigned char *) cipher_ctx->key,
+                          cipher_ctx->keylen * 8);
 
-  cipher_ctx->impl_cipher_ctx = mbedtls_ccm_ctx;
+      cipher_ctx->impl_cipher_ctx = mbedtls_ccm_ctx;
+    }
+  else
+    {
+      mbedtls_gcm_context *mbedtls_gcm_ctx;
+      mbedtls_gcm_ctx = ofc_malloc(sizeof(mbedtls_gcm_context));
+  
+      mbedtls_gcm_init (mbedtls_gcm_ctx);
+      mbedtls_gcm_setkey (mbedtls_gcm_ctx, MBEDTLS_CIPHER_ID_AES,
+                          (const unsigned char *) cipher_ctx->key,
+                          cipher_ctx->keylen * 8);
+
+      cipher_ctx->impl_cipher_ctx = mbedtls_gcm_ctx;
+    }
   return (cipher_ctx);
 }
 
@@ -392,21 +514,41 @@ OFC_BOOL mbedtls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                               OFC_UINT8 *ctext, OFC_SIZET ctext_size,
                               OFC_UINT8 *ptext, OFC_SIZET ptext_size)
 {
-  mbedtls_ccm_context *mbedtls_ccm_ctx;
   size_t outlen = 0;
   OFC_UINT8 tag[16];
   size_t inlen = ctext_size - tag_size;
   OFC_BOOL ret = OFC_TRUE;
 
-  mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      mbedtls_ccm_context *mbedtls_ccm_ctx;
+      mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
 
-  mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_DECRYPT, iv, iv_size);
-  mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
-  mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
+      mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_DECRYPT, iv, iv_size);
+      mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
+      mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
 
-  mbedtls_ccm_update(mbedtls_ccm_ctx, ctext, inlen,
-                     ptext+outlen, ptext_size, &outlen);
-  mbedtls_ccm_finish(mbedtls_ccm_ctx, tag, tag_size);
+      mbedtls_ccm_update(mbedtls_ccm_ctx, ctext, inlen,
+                         ptext+outlen, ptext_size, &outlen);
+      mbedtls_ccm_finish(mbedtls_ccm_ctx, tag, tag_size);
+    }
+  else
+    {
+      mbedtls_gcm_context *mbedtls_gcm_ctx;
+      mbedtls_gcm_ctx = cipher_ctx->impl_cipher_ctx;
+
+      mbedtls_gcm_starts(mbedtls_gcm_ctx, MBEDTLS_GCM_DECRYPT, iv, iv_size);
+      mbedtls_gcm_update_ad(mbedtls_gcm_ctx, aead, aead_size);
+
+      mbedtls_gcm_update(mbedtls_gcm_ctx, ctext, inlen,
+                         ptext+outlen, ptext_size, &outlen);
+
+      mbedtls_gcm_finish(mbedtls_gcm_ctx, 
+                         ptext+outlen, ptext_size-outlen,
+                         &outlen,
+                         tag, tag_size);
+    }
+
   if (ofc_memcmp(ctext+inlen, tag, 16) != 0)
     ret = OFC_FALSE;
   return (ret);
@@ -421,32 +563,63 @@ mbedtls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                             OFC_UCHAR **addr, OFC_SIZET *len,
                             OFC_UINT8 *ptext, OFC_SIZET ptext_size)
 {
-  mbedtls_ccm_context *mbedtls_ccm_ctx;
   size_t inlen = 0;
   size_t outlen = 0;
   OFC_UINT8 tag_check[16];
   OFC_BOOL ret = OFC_TRUE;
 
-  mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
-
-  /*
-   * Get size of input
-   */
-  for (int i = 0 ; i < num_elem; i++)
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
     {
-      inlen += len[i];
+      mbedtls_ccm_context *mbedtls_ccm_ctx;
+      mbedtls_ccm_ctx = cipher_ctx->impl_cipher_ctx;
+
+      /*
+       * Get size of input
+       */
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          inlen += len[i];
+        }
+
+      mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_DECRYPT, iv, iv_size);
+
+      mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
+      mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          mbedtls_ccm_update(mbedtls_ccm_ctx, addr[i], len[i],
+                             ptext+outlen, len[i], &outlen);
+        }
+      mbedtls_ccm_finish(mbedtls_ccm_ctx, tag_check, tag_size);
     }
-
-  mbedtls_ccm_starts(mbedtls_ccm_ctx, MBEDTLS_CCM_DECRYPT, iv, iv_size);
-
-  mbedtls_ccm_set_lengths(mbedtls_ccm_ctx, aead_size, inlen, tag_size);
-  mbedtls_ccm_update_ad(mbedtls_ccm_ctx, aead, aead_size);
-  for (int i = 0 ; i < num_elem; i++)
+  else
     {
-      mbedtls_ccm_update(mbedtls_ccm_ctx, addr[i], len[i],
-                         ptext+outlen, len[i], &outlen);
+      mbedtls_gcm_context *mbedtls_gcm_ctx;
+      mbedtls_gcm_ctx = cipher_ctx->impl_cipher_ctx;
+
+      /*
+       * Get size of input
+       */
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          inlen += len[i];
+        }
+
+      mbedtls_gcm_starts(mbedtls_gcm_ctx, MBEDTLS_GCM_DECRYPT, iv, iv_size);
+
+      mbedtls_gcm_update_ad(mbedtls_gcm_ctx, aead, aead_size);
+      for (int i = 0 ; i < num_elem; i++)
+        {
+          mbedtls_gcm_update(mbedtls_gcm_ctx, addr[i], len[i],
+                             ptext+outlen, len[i], &outlen);
+        }
+
+      mbedtls_gcm_finish(mbedtls_gcm_ctx, 
+                         ptext+outlen, ptext_size-outlen,
+                         &outlen,
+                         tag_check, tag_size);
     }
-  mbedtls_ccm_finish(mbedtls_ccm_ctx, tag_check, tag_size);
+    
   if (ofc_memcmp(tag_check, tag, 16) != 0)
     ret = OFC_FALSE;
   return (ret);
@@ -455,11 +628,23 @@ mbedtls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
 OFC_VOID
 mbedtls_smb2_decryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 {
-  mbedtls_ccm_context *mbedtls_ccm_ctx =
-    cipher_ctx->impl_cipher_ctx;
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      mbedtls_ccm_context *mbedtls_ccm_ctx =
+        cipher_ctx->impl_cipher_ctx;
 
-  mbedtls_ccm_free(mbedtls_ccm_ctx);
-  ofc_free(mbedtls_ccm_ctx);
+      mbedtls_ccm_free(mbedtls_ccm_ctx);
+      ofc_free(mbedtls_ccm_ctx);
+    }
+  else
+    {
+      mbedtls_gcm_context *mbedtls_gcm_ctx =
+        cipher_ctx->impl_cipher_ctx;
+
+      mbedtls_gcm_free(mbedtls_gcm_ctx);
+      ofc_free(mbedtls_gcm_ctx);
+    }
+    
   ofc_free(cipher_ctx);
 }
 
