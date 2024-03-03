@@ -125,7 +125,7 @@ OFC_VOID smb2_sign_vector(OFC_VOID *signing_ctx,
                            digest, digest_len);
 #endif
 #if defined(OF_GNUTLS)
-  gnutls_smb2_sign_vector(ctx->openssl,
+  gnutls_smb2_sign_vector(ctx->gnutls,
                           num_elem, ptext_vec, ptext_size_vec,
                           digest, digest_len);
 #endif
