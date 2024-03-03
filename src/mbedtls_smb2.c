@@ -11,7 +11,7 @@
 #include "ofc/process.h"
 
 #include "of_security/security_smb2.h"
-#include "of_security/gnutls_smb2.h"
+#include "of_security/mbedtls_smb2.h"
 
 #include <mbedtls/md.h>
 #include <mbedtls/cmac.h>
@@ -35,6 +35,12 @@ OFC_INT mbedtls_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
     
   mbedtls_sha512_init(&ctx);
 
+#if 0
+  mbedtls_sha512_starts_ret(&ctx, 0);
+#else
+  mbedtls_sha512_starts(&ctx, 0);
+#endif
+
   for (OFC_INT i = 0 ; i < num_elem ; i++)
     {
 #if 0
@@ -45,7 +51,7 @@ OFC_INT mbedtls_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
     }
 #if 0
   mbedtls_sha512_finish_ret(&ctx, mac);
-#eles
+#else
   mbedtls_sha512_finish(&ctx, mac);
 #endif
 }
@@ -96,7 +102,7 @@ mbedtls_smb2_signing_ctx(OFC_UCHAR *session_key,
   signing_ctx->keylen = OFC_MIN(signing_key_len, digest_len);
   ofc_memcpy(signing_ctx->key, digest, signing_ctx->keylen);
     
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("mbedtls Signing Key: ", signing_ctx->key);
 #endif
 
@@ -153,7 +159,7 @@ mbedtls_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
   rc = mbedtls_cipher_cmac_finish(mbedtls_cipher_ctx, mac);
   if (rc != 0)
     ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("mbedtls sign: ", mac);
 #endif
   ofc_memcpy(digest, mac, digest_len);
@@ -179,7 +185,7 @@ OFC_VOID mbedtls_smb2_sign(struct of_security_signing_ctx *signing_ctx,
   rc = mbedtls_cipher_cmac_finish(mbedtls_cipher_ctx, mac);
   if (rc != 0)
     ofc_log(OFC_LOG_WARN, mbedtls_high_level_strerr(rc));
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("mbedtls sign: ", mac);
 #endif
   ofc_memcpy(digest, mac, digest_len);
@@ -248,7 +254,7 @@ mbedtls_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
              digest,
              cipher_ctx->keylen);
 
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("mbedtls Encryption Key: ", cipher_ctx->key);
 #endif
 
@@ -319,9 +325,9 @@ mbedtls_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
                          ctext+ptext_size, tag_size);
     }
 
-#if 0
-  of_security_print_key("mbedtls encrypt signature :",
-                        ctext + ctext_size);
+#if defined(KEY_DEBUG)
+  of_security_print_key("mbedtls encrypt signature:",
+                        ctext + ptext_size);
 #endif
 }
 
@@ -395,9 +401,9 @@ mbedtls_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                               ctext+inlen, tag_size);
     }
 
-#if 0
-  of_security_print_key("mbedtls encrypt signature :",
-                        ctext + ctext_size);
+#if defined(KEY_DEBUG)
+  of_security_print_key("mbedtls encrypt vector signature:",
+                        ctext + inlen);
 #endif
 }
 
@@ -447,6 +453,8 @@ mbedtls_smb2_decryption_ctx(OFC_UCHAR *session_key,
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
+  cipher_ctx->cipher_algo = cipher_algo;
+
   cipher_ctx->keylen = OFC_MIN(digest_len, 16);
 
   OFC_NET_LTON(&one, 0, 1);
@@ -476,7 +484,7 @@ mbedtls_smb2_decryption_ctx(OFC_UCHAR *session_key,
              digest,
              cipher_ctx->keylen);
 
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("mbedtls Decryption Key: ", cipher_ctx->key);
 #endif
 
@@ -549,6 +557,10 @@ OFC_BOOL mbedtls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                          tag, tag_size);
     }
 
+#if defined(KEY_DEBUG)
+  of_security_print_key("mbedtls decrypt signature:",
+                        tag);
+#endif
   if (ofc_memcmp(ctext+inlen, tag, 16) != 0)
     ret = OFC_FALSE;
   return (ret);
@@ -620,6 +632,10 @@ mbedtls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                          tag_check, tag_size);
     }
     
+#if defined(KEY_DEBUG)
+  of_security_print_key("mbedtls decrypt vector signature:",
+                        tag_check);
+#endif
   if (ofc_memcmp(tag_check, tag, 16) != 0)
     ret = OFC_FALSE;
   return (ret);

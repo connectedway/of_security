@@ -15,9 +15,28 @@
 
 #include <gnutls/crypto.h>
 
+OFC_INT gnutls_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
+                             const OFC_SIZET *len, OFC_UCHAR *mac)
+{
+  gnutls_hash_hd_t ctx;
+
+  gnutls_hash_init(&ctx, GNUTLS_DIG_SHA512);
+
+  for (OFC_INT i = 0 ; i < num_elem ; i++)
+    {
+      gnutls_hash(ctx, addr[i], len[i]);
+    }
+
+  gnutls_hash_output(ctx, mac);
+}
+
 struct of_security_signing_ctx *
 gnutls_smb2_signing_ctx(OFC_UCHAR *session_key,
-                        OFC_SIZET session_key_len)
+                        OFC_SIZET session_key_len,
+                        OFC_UCHAR *label,
+                        OFC_SIZET label_size,
+                        OFC_UCHAR *context,
+                        OFC_SIZET context_size)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -43,14 +62,14 @@ gnutls_smb2_signing_ctx(OFC_UCHAR *session_key,
                    (const unsigned char *) &one,
                    sizeof(one));
   rc = gnutls_hmac(hmac_hnd,
-                   (const unsigned char *) "SMB2AESCMAC",
-                   12);
+                   (const unsigned char *) label,
+                   label_size);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &zero,
                    1);
   rc = gnutls_hmac(hmac_hnd,
-                   (const unsigned char *) "SmbSign",
-                   8);
+                   (const unsigned char *) context,
+                   context_size);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &len,
                    sizeof(len));
@@ -60,7 +79,7 @@ gnutls_smb2_signing_ctx(OFC_UCHAR *session_key,
   signing_ctx->keylen = OFC_MIN(signing_key_len, digest_len);
   ofc_memcpy(signing_ctx->key, digest, signing_ctx->keylen);
     
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("gnutls Signing Key: ", signing_ctx->key);
 #endif
 
@@ -90,8 +109,8 @@ gnutls_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
                   ptext_vec[i], ptext_size_vec[i]);
     }
   gnutls_hmac_output(hmac_hnd, mac);
-#if 0
-  smb_client_session_print_key("gnutls sign: ", mac);
+#if defined(KEY_DEBUG)
+  of_security_print_key("gnutls sign: ", mac);
 #endif
   ofc_memcpy(digest, mac, digest_len);
 }
@@ -107,8 +126,8 @@ OFC_VOID gnutls_smb2_sign(struct of_security_signing_ctx *signing_ctx,
   gnutls_hmac(hmac_hnd,
               ptext, ptext_size);
   gnutls_hmac_output(hmac_hnd, mac);
-#if 0
-  smb_client_session_print_key("gnutls sign: ", mac);
+#if defined(KEY_DEBUG)
+  of_security_print_key("gnutls sign: ", mac);
 #endif
   ofc_memcpy(digest, mac, digest_len);
 }
@@ -123,8 +142,12 @@ gnutls_smb2_signing_ctx_free(struct of_security_signing_ctx *signing_ctx)
 }
 
 struct of_security_cipher_ctx *
-gnutls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
-			   OFC_UCHAR *session_key, OFC_SIZET session_key_len)
+gnutls_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
+                           OFC_UINT cipher_algo,
+                           OFC_UCHAR *label,
+                           OFC_SIZET label_size,
+                           OFC_UCHAR *context,
+                           OFC_SIZET context_size)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -139,6 +162,8 @@ gnutls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
+  cipher_ctx->cipher_algo = cipher_algo;
+
   cipher_ctx->keylen = OFC_MIN(digest_len, 16);
 
   OFC_NET_LTON(&one, 0, 1);
@@ -151,19 +176,14 @@ gnutls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
                    (const unsigned char *) &one,
                    sizeof(one));
   rc = gnutls_hmac(hmac_hnd,
-                   (const unsigned char *) "SMB2AESCCM",
-                   11);
+                   (const unsigned char *) label,
+                   label_size);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &zero,
                    1);
-  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
-    rc = gnutls_hmac(hmac_hnd,
-		     (const unsigned char *) "ServerOut",
-		     10);
-  else
-    rc = gnutls_hmac(hmac_hnd,
-		     (const unsigned char *) "ServerIn ",
-		     10);
+  rc = gnutls_hmac(hmac_hnd,
+                   (const unsigned char *) context,
+                   context_size);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &len,
                    sizeof(len));
@@ -173,9 +193,9 @@ gnutls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
              digest,
              cipher_ctx->keylen);
 
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("gnutls Encryption Key: ",
-                                smb_client_session->encryption_key);
+                        digest);
 #endif
 
   gnutls_datum_t key_datum;
@@ -185,10 +205,18 @@ gnutls_smb2_encryption_ctx(enum smb2_cipher_type cipher_type,
   gnutls_aead_cipher_hd_t *encryption_cipher_hnd =
     ofc_malloc(sizeof(gnutls_aead_cipher_hd_t));
 
-  rc = gnutls_aead_cipher_init(encryption_cipher_hnd,
-                               GNUTLS_CIPHER_AES_128_CCM,
-                               &key_datum);
-
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      rc = gnutls_aead_cipher_init(encryption_cipher_hnd,
+                                   GNUTLS_CIPHER_AES_128_CCM,
+                                   &key_datum);
+    }
+  else
+    {
+      rc = gnutls_aead_cipher_init(encryption_cipher_hnd,
+                                   GNUTLS_CIPHER_AES_128_GCM,
+                                   &key_datum);
+    }
   cipher_ctx->impl_cipher_ctx = encryption_cipher_hnd;
   return (cipher_ctx);
 }
@@ -212,9 +240,52 @@ gnutls_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
                              ptext,
                              ptext_size,
                              ctext, &gnutls_ctext_size);
-#if 0
-  of_security_print_key("gnutls encrypt signature :",
-                        ctext + ctext_size);
+#if defined(KEY_DEBUG)
+  of_security_print_key("gnutls encrypt signature:",
+                        ctext + ptext_size);
+#endif
+}
+
+OFC_VOID
+gnutls_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
+                           OFC_UCHAR *iv, OFC_SIZET iv_size,
+                           OFC_UINT8 *aead, OFC_SIZET aead_size,
+                           OFC_SIZET tag_size,
+                           OFC_INT num_elem,
+                           OFC_UCHAR **addr, OFC_SIZET *len,
+                           OFC_UINT8 *ctext, OFC_SIZET ctext_size)
+{
+  gnutls_aead_cipher_hd_t *encryption_cipher_hnd =
+    cipher_ctx->impl_cipher_ctx ;
+  size_t gnutls_ctext_size = ctext_size;
+  giovec_t aead_iovec[1];
+  giovec_t *ptext_iovec;
+
+  aead_iovec[0].iov_base = aead;
+  aead_iovec[0].iov_len = aead_size;
+
+  ptext_iovec = ofc_malloc(sizeof(giovec_t) * num_elem);
+
+  OFC_SIZET overall_length = 0;
+  for (OFC_UINT i = 0; i < num_elem ; i++)
+    {
+      ptext_iovec[i].iov_base = addr[i];
+      ptext_iovec[i].iov_len = len[i];
+      overall_length += len[i];
+    }
+
+  gnutls_aead_cipher_encryptv(*encryption_cipher_hnd,
+                              iv, iv_size,
+                              aead_iovec, 1,
+                              tag_size,
+                              ptext_iovec, num_elem,
+                              ctext, &gnutls_ctext_size);
+
+  ofc_free(ptext_iovec);
+
+#if defined(KEY_DEBUG)
+  of_security_print_key("gnutls encrypt vector signature:",
+                        ctext + overall_length);
 #endif
 }
 
@@ -230,9 +301,13 @@ gnutls_smb2_encryption_ctx_free(struct of_security_cipher_ctx *cipher_ctx)
 }
   
 struct of_security_cipher_ctx *
-gnutls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
-			   OFC_UCHAR *session_key,
-                           OFC_SIZET session_key_len)
+gnutls_smb2_decryption_ctx(OFC_UCHAR *session_key,
+                           OFC_SIZET session_key_len,
+                           OFC_UINT cipher_algo,
+                           OFC_UCHAR *label,
+                           OFC_SIZET label_size,
+                           OFC_UCHAR *context,
+                           OFC_SIZET context_size)
 {
   OFC_UINT8 zero = 0;
   OFC_UINT32 len ;
@@ -247,6 +322,8 @@ gnutls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
 
   cipher_ctx = ofc_malloc(sizeof(struct of_security_cipher_ctx));
 
+  cipher_ctx->cipher_algo = cipher_algo;
+
   cipher_ctx->keylen = OFC_MIN(digest_len, 16);
 
   OFC_NET_LTON(&one, 0, 1);
@@ -259,19 +336,14 @@ gnutls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
                    (const unsigned char *) &one,
                    sizeof(one));
   rc = gnutls_hmac(hmac_hnd,
-                   (const unsigned char *) "SMB2AESCCM",
-                   11);
+                   (const unsigned char *) label,
+                   label_size);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &zero,
                    1);
-  if (cipher_type == SMB2_CIPHER_TYPE_SERVER)
-    rc = gnutls_hmac(hmac_hnd,
-		     (const unsigned char *) "ServerIn ",
-		     10);
-  else
-    rc = gnutls_hmac(hmac_hnd,
-		     (const unsigned char *) "ServerOut",
-		     10);
+  rc = gnutls_hmac(hmac_hnd,
+                   (const unsigned char *) context,
+                   context_size);
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) &len,
                    sizeof(len));
@@ -281,9 +353,9 @@ gnutls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
              digest,
              cipher_ctx->keylen);
 
-#if 0
-  of_security_print_key("gnutls Encryption Key: ",
-                                smb_client_session->encryption_key);
+#if defined(KEY_DEBUG)
+  of_security_print_key("gnutls Decryption Key: ",
+                        digest);
 #endif
 
   gnutls_datum_t key_datum;
@@ -293,9 +365,18 @@ gnutls_smb2_decryption_ctx(enum smb2_cipher_type cipher_type,
   gnutls_aead_cipher_hd_t *decryption_cipher_hnd =
     ofc_malloc(sizeof(gnutls_aead_cipher_hd_t));
 
-  rc = gnutls_aead_cipher_init(decryption_cipher_hnd,
-                               GNUTLS_CIPHER_AES_128_CCM,
-                               &key_datum);
+  if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
+    {
+      rc = gnutls_aead_cipher_init(decryption_cipher_hnd,
+                                   GNUTLS_CIPHER_AES_128_CCM,
+                                   &key_datum);
+    }
+  else
+    {
+      rc = gnutls_aead_cipher_init(decryption_cipher_hnd,
+                                   GNUTLS_CIPHER_AES_128_GCM,
+                                   &key_datum);
+    }
 
   cipher_ctx->impl_cipher_ctx = decryption_cipher_hnd;
   return (cipher_ctx);
@@ -320,6 +401,67 @@ OFC_BOOL gnutls_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
                                  ctext, ctext_size,
                                  ptext, &gnutls_ptext_size) < 0)
     ret = OFC_FALSE;
+
+#if defined(KEY_DEBUG)
+  ofc_printf("gnutls decrypt signature verification %s\n",
+             ret == OFC_TRUE ? "success" : "failed");
+#endif
+
+  return (ret);
+}
+  
+OFC_BOOL
+gnutls_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
+                           OFC_UCHAR *iv, OFC_SIZET iv_size,
+                           OFC_UINT8 *aead, OFC_SIZET aead_size,
+                           OFC_UINT8 *tag, OFC_SIZET tag_size,
+                           OFC_INT num_elem,
+                           OFC_UCHAR **addr, OFC_SIZET *len,
+                           OFC_UINT8 *ptext, OFC_SIZET ptext_size)
+{
+  OFC_BOOL ret;
+  /*
+   * Because gnutls does vector decryption in place, we can't use it.
+   * So, we'll do some ugly stuff which involves taking the cipher text
+   * vector and convert it to a single cipher text buffer, then 
+   * pass it to the normal decrypt routine.
+   */
+  /*
+   * Find the length of the cipher text
+   */
+  OFC_SIZET overall_length = 0;
+  for (OFC_UINT i = 0; i < num_elem ; i++)
+    {
+      overall_length += len[i];
+    }
+  /*
+   * Allocate a new ctext
+   */
+  OFC_UCHAR *new_ctext = ofc_malloc(overall_length+tag_size);
+  /*
+   * Now copy over the vector into the new ctext
+   */
+  OFC_UCHAR *p = new_ctext;
+  for (OFC_UINT i = 0; i < num_elem ; i++)
+    {
+      ofc_memcpy(p, addr[i], len[i]);
+      p += len[i];
+    }
+  ofc_memcpy(p, tag, tag_size);
+  /*
+   * Now do the normal decrypt
+   */
+  ret = gnutls_smb2_decrypt(cipher_ctx,
+                            iv, iv_size,
+                            aead, aead_size,
+                            tag_size,
+                            new_ctext, overall_length+tag_size,
+                            ptext, ptext_size);
+  /*
+   * Now get rid of new ctext
+   */
+  ofc_free(new_ctext);
+
   return (ret);
 }
   

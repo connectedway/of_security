@@ -75,10 +75,6 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   params[0] = OSSL_PARAM_construct_utf8_string("digest", "SHA256", 0);
   params[1] = OSSL_PARAM_construct_end();
   
-#if 0
-  of_security_print_key("Session Key: ", session_key);
-#endif
-
   EVP_MAC_init(macctx, session_key, session_key_len, params);
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
   EVP_MAC_update(macctx, (const unsigned char *) label, label_size);
@@ -91,7 +87,7 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
 
   signing_ctx->keylen = OFC_MIN(signing_key_len, digest_len);
   ofc_memcpy(signing_ctx->key, digest, signing_ctx->keylen);
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl Signing Key: ", signing_ctx->key);
 #endif
 
@@ -138,10 +134,6 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   
   macctx = HMAC_CTX_new();
 
-#if 0
-  of_security_print_key("Session Key: ", session_key);
-#endif
-
   md = EVP_sha256();
   HMAC_Init_ex(macctx, session_key, session_key_len, md, NULL);
   
@@ -156,7 +148,7 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
 
   signing_ctx->keylen = OFC_MIN(signing_key_len, digest_len);
   ofc_memcpy(signing_ctx->key, digest, signing_ctx->keylen);
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl Signing Key: ", signing_ctx->key);
 #endif
 	      
@@ -190,8 +182,8 @@ openssl_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
     }
   EVP_MAC_final(evp_signing_ctx,
                 digest, &evp_digest_len, evp_digest_len);
-#if 0
-  of_security_print_key("openssl sign: ", digest);
+#if defined(KEY_DEBUG)
+  of_security_print_key("openssl vector sign: ", digest);
 #endif
 }
 #else
@@ -219,8 +211,8 @@ openssl_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
     }
   CMAC_Final(evp_signing_ctx,
 	     digest, &evp_digest_len);
-#if 0
-  of_security_print_key("openssl sign: ", digest);
+#if defined(KEY_DEBUG)
+  of_security_print_key("openssl vector sign: ", digest);
 #endif
 }
 #endif
@@ -242,7 +234,7 @@ OFC_VOID openssl_smb2_sign(struct of_security_signing_ctx *signing_ctx,
                  ptext, ptext_size);
   EVP_MAC_final(evp_signing_ctx,
                 digest, &evp_digest_len, evp_digest_len);
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl sign: ", digest);
 #endif
 }
@@ -267,7 +259,7 @@ OFC_VOID openssl_smb2_sign(struct of_security_signing_ctx *signing_ctx,
   CMAC_Final(evp_signing_ctx,
 	     digest, &evp_digest_len);
 
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl sign: ", digest);
 #endif
 }
@@ -332,10 +324,6 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
   params[0] = OSSL_PARAM_construct_utf8_string("digest", "SHA256", 0);
   params[1] = OSSL_PARAM_construct_end();
 
-#if 0
-  of_security_print_key("Session Key: ", session_key);
-#endif
-
   EVP_MAC_init(macctx, session_key, session_key_len, params);
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
   EVP_MAC_update(macctx, (const unsigned char *) label, label_size);
@@ -346,7 +334,7 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
   EVP_MAC_CTX_free(macctx);
                                     
   ofc_memcpy(cipher_ctx->key, digest, cipher_ctx->keylen);
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl Encryption Key: ",
                         cipher_ctx->key);
 #endif
@@ -412,10 +400,6 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
 
   md = EVP_sha256();
 
-#if 0
-  of_security_print_key("Session Key: ", session_key);
-#endif
-
   HMAC_Init_ex(macctx, session_key, session_key_len, md, NULL);
   HMAC_Update(macctx, (const unsigned char *) &one, sizeof(one));
   HMAC_Update(macctx, (const unsigned char *) label, label_size);
@@ -426,7 +410,7 @@ openssl_smb2_encryption_ctx(OFC_UCHAR *session_key, OFC_SIZET session_key_len,
   HMAC_CTX_free(macctx);
                                     
   ofc_memcpy(cipher_ctx->key, digest, cipher_ctx->keylen);
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl Encryption Key: ",
                         cipher_ctx->key);
 #endif
@@ -515,8 +499,9 @@ openssl_smb2_encrypt(struct of_security_cipher_ctx *cipher_ctx,
       EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
                           EVP_CTRL_GCM_GET_TAG, tag_size, tag);
     }
-#if 0
-  of_security_print_key("openssl encrypt signature :", signature);
+#if defined(KEY_DEBUG)
+  of_security_print_key("openssl encrypt signature:",
+                        ctext + ptext_size);
 #endif
 }
 
@@ -596,8 +581,9 @@ openssl_smb2_encrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
                           EVP_CTRL_GCM_GET_TAG, tag_size, tag);
     }
 
-#if 0
-  of_security_print_key("openssl encrypt signature :", signature);
+#if defined(KEY_DEBUG)
+  of_security_print_key("openssl encrypt vector signature:",
+                        ctext + ptext_size);
 #endif
 }
 
@@ -647,10 +633,6 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   params[0] = OSSL_PARAM_construct_utf8_string("digest", "SHA256", 0);
   params[1] = OSSL_PARAM_construct_end();
 
-#if 0
-  of_security_print_key("Session Key: ", session_key);
-#endif
-
   EVP_MAC_init(macctx, session_key, session_key_len, params);
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
   EVP_MAC_update(macctx, (const unsigned char *) label, label_size);
@@ -663,7 +645,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   cipher_ctx->keylen = 16;
   ofc_memcpy(cipher_ctx->key, digest, cipher_ctx->keylen);
 
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl Decryption Key: ",
                         decryption_ctx->key);
 #endif
@@ -722,9 +704,6 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   macctx = HMAC_CTX_new();
 
   md = EVP_sha256();
-#if 0
-  of_security_print_key("Session Key: ", session_key);
-#endif
 
   HMAC_Init_ex(macctx, session_key, session_key_len, md, NULL);
   HMAC_Update(macctx, (const unsigned char *) &one, sizeof(one));
@@ -738,9 +717,9 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   cipher_ctx->keylen = 16;
   ofc_memcpy(cipher_ctx->key, digest, cipher_ctx->keylen);
 
-#if 0
+#if defined(KEY_DEBUG)
   of_security_print_key("openssl Decryption Key: ",
-                        decryption_ctx->key);
+                        cipher_ctx->key);
 #endif
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
   if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
@@ -848,6 +827,11 @@ OFC_BOOL openssl_smb2_decrypt(struct of_security_cipher_ctx *cipher_ctx,
         ret = OFC_FALSE;
     }
         
+#if defined(KEY_DEBUG)
+  ofc_printf("openssl decrypt signature verification %s\n",
+             ret == OFC_TRUE ? "success" : "failed");
+#endif
+
   return (ret);
 }
   
@@ -946,6 +930,10 @@ openssl_smb2_decrypt_vector(struct of_security_cipher_ctx *cipher_ctx,
 
   ofc_free(ctext);
 
+#if defined(KEY_DEBUG)
+  ofc_printf("openssl decrypt vector signature verification %s\n",
+             ret == OFC_TRUE ? "success" : "failed");
+#endif
   return (ret);
 }
 
