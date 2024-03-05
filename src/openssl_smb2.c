@@ -652,7 +652,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
   EVP_CIPHER_CTX *evp_cipher_ctx = EVP_CIPHER_CTX_new();
   if (cipher_ctx->cipher_algo == SMB2_AES_128_CCM)
     {
-      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm,
+      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_ccm(),
                          OFC_NULL, OFC_NULL, OFC_NULL);
       EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
                           EVP_CTRL_AEAD_SET_IVLEN, 11,
@@ -661,7 +661,7 @@ openssl_smb2_decryption_ctx(OFC_UCHAR *session_key,
     }
   else if (cipher_ctx->cipher_algo == SMB2_AES_128_GCM)
     {
-      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_gcm,
+      EVP_DecryptInit_ex(evp_cipher_ctx, EVP_aes_128_gcm(),
                          OFC_NULL, OFC_NULL, OFC_NULL);
       EVP_CIPHER_CTX_ctrl(evp_cipher_ctx,
                           EVP_CTRL_AEAD_SET_IVLEN, 12,
