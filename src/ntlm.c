@@ -68,6 +68,8 @@
 
 #include "of_security/plugin_common.h"
 
+#include "of_smb/config.h"
+
 /*****************************  Common Section  *****************************/
 
 typedef unsigned char u_char ;
