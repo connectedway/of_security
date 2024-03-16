@@ -54,6 +54,7 @@ OFC_INT mbedtls_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
 #else
   mbedtls_sha512_finish(&ctx, mac);
 #endif
+  return (0);
 }
 
 struct of_security_signing_ctx *

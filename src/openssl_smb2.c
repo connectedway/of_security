@@ -38,6 +38,7 @@ OFC_INT openssl_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
       SHA512_Update(&ctx, addr[i], len[i]);
     }
   SHA512_Final(mac, &ctx);
+  return (0);
 }
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000

@@ -28,6 +28,7 @@ OFC_INT gnutls_sha512_vector(OFC_SIZET num_elem, const OFC_UCHAR *addr[],
     }
 
   gnutls_hash_output(ctx, mac);
+  return (0);
 }
 
 struct of_security_signing_ctx *
