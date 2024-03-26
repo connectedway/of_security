@@ -21,6 +21,7 @@
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/ccm.h>
 #include <mbedtls/gcm.h>
+#include <mbedtls/sha512.h>
 
 #if defined(__linux__)
 #include <unistd.h>
