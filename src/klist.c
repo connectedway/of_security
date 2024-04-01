@@ -130,7 +130,7 @@ list_all_ccaches()
 }
 #endif
 #if !defined(__APPLE__)
-int kinit(const char *principal, const char *password)
+int kinit(const char *filename, const char *principal, const char *password)
 {
   krb5_context ctx = NULL;
   krb5_ccache out_cc = NULL;
@@ -147,7 +147,11 @@ int kinit(const char *principal, const char *password)
     }
   else
     {
-      ret = krb5_cc_default(ctx, &out_cc);
+      if (filename == OFC_NULL)
+        ret = krb5_cc_default(ctx, &out_cc);
+      else
+        ret = krb5_cc_resolve(ctx, filename, &out_cc);
+
       if (ret)
         {
           ofc_log(OFC_LOG_WARN, "Unable to get the default cache\n");
