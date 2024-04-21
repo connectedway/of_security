@@ -593,7 +593,7 @@ OFC_CHAR *make_service_name(OFC_CHAR *server_fqdn)
 {
   OFC_CHAR *service_name;
 
-  service_name = ofc_saprintf("cifs/%s", server_fqdn);
+  service_name = ofc_saprintf("host/%s", server_fqdn);
   return (service_name);
 }
 

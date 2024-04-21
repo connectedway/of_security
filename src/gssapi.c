@@ -942,25 +942,32 @@ static OFC_INT gssapi_spnego_decapsulate(gss_buffer_t input_token_buffer,
   OFC_UCHAR *p ;
   OFC_UINT32 ret ;
 
-  p = input_token_buffer->value;
-  ret = gssapi_verify_mech_header(&p,
-				  input_token_buffer->length,
-				  mech);
-  if (ret == SASL_OK) 
+  if (input_token_buffer == GSS_C_NO_BUFFER)
     {
-      *buf_len = input_token_buffer->length - 
-	(p - (OFC_UCHAR *) input_token_buffer->value);
-      *buf = p;
+      ret = SASL_NOMECH ;
     }
   else
     {
-      /* 
-       * If there is no gssapi header, just ignore it.  Not all implementations
-       * put a gssapi wrapper
-       */
-      *buf_len = input_token_buffer->length ;
-      *buf = input_token_buffer->value ;
-      ret = SASL_NOMECH ;
+      p = input_token_buffer->value;
+      ret = gssapi_verify_mech_header(&p,
+				      input_token_buffer->length,
+				      mech);
+      if (ret == SASL_OK) 
+	{
+	  *buf_len = input_token_buffer->length - 
+	    (p - (OFC_UCHAR *) input_token_buffer->value);
+	  *buf = p;
+	}
+      else
+	{
+	  /* 
+	   * If there is no gssapi header, just ignore it.  Not all implementations
+	   * put a gssapi wrapper
+	   */
+	  *buf_len = input_token_buffer->length ;
+	  *buf = input_token_buffer->value ;
+	  ret = SASL_NOMECH ;
+	}
     }
   return (ret) ;
 }
@@ -1958,6 +1965,7 @@ typedef struct server_context {
   OFC_CHAR *user ;
   OFC_CHAR *authid ;
   OFC_INT use_spnego ;
+  const oid *mech_oid;
 } server_context_t;
 
 static int 
@@ -1991,7 +1999,7 @@ gssapi_server_mech_new(OFC_VOID *glob_context,
 				       params->ipremoteport,
 				       OFC_NULL, 0, 
 				       (sasl_conn_t **) &text->pconn) ;
-      
+
 	if (result == SASL_OK)
 	  {
 	    *conn_context = text;
@@ -2440,11 +2448,40 @@ static OFC_INT spnego_init(server_context_t *text,
 	      result = decode_NegTokenInit(buf + taglen, len, &resp, OFC_NULL) ;
 	      if (result == SASL_OK)
 		{
+		  const oid *desired = OFC_NULL ;
+		  const char *saslname = OFC_NULL;
+
+		  for (int j=0; j < resp.mechTypes.len && desired == OFC_NULL;
+		       j++)
+		    {
+		      if ((resp.mechTypes.val[j].length ==
+			   gss_mech_krb5_gss_oid.length) &&
+			  (ofc_memcmp (resp.mechTypes.val[j].elements,
+				       gss_mech_krb5_gss_oid.elements,
+				       gss_mech_krb5_gss_oid.length *
+				       sizeof (OFC_UINT)) == 0))
+			{
+			  desired = &gss_mech_krb5_oid ;
+			  saslname = "KERBEROS";
+			}
+		      else if ((resp.mechTypes.val[j].length ==
+				gss_mech_ntlmssp_gss_oid.length) &&
+			       (ofc_memcmp (resp.mechTypes.val[j].elements,
+					    gss_mech_ntlmssp_gss_oid.elements,
+					    gss_mech_ntlmssp_gss_oid.length *
+					    sizeof (OFC_UINT)) == 0)) 
+			{
+			  desired = &gss_mech_ntlmssp_oid;
+			  saslname = "NTLM";
+			}
+		    }
+
 		  if (resp.mechToken != OFC_NULL) 
 		    {
 		      sub_token.length = resp.mechToken->length;
 		      sub_token.value  = 
 			(OFC_VOID *) resp.mechToken->data;
+		      text->mech_oid = desired;
 		    } 
 		  else 
 		    {
@@ -2455,10 +2492,11 @@ static OFC_INT spnego_init(server_context_t *text,
 		  sasl_out = OFC_NULL ;
 		  sasl_outlen = 0 ;
 
-		  result = of_security_server_start (text->pconn, "NTLM", 
-						   sub_token.value, (unsigned) sub_token.length,
-						   &sasl_out, &sasl_outlen) ;
-
+		  result =
+		    of_security_server_start (text->pconn, saslname, 
+					      sub_token.value,
+					      (unsigned) sub_token.length,
+					      &sasl_out, &sasl_outlen) ;
 
 		  output_token->value = ofc_malloc(sasl_outlen);
 		  if (output_token->value == OFC_NULL)
@@ -2542,6 +2580,23 @@ static OFC_INT spnego_sreply(server_context_t *text,
   else
     {
       *(resp.negState) = accept_completed;
+    }
+
+  if (result == SASL_OK)
+    {
+      resp.supportedMech = 
+	ofc_malloc(sizeof(*resp.supportedMech));
+      if (resp.supportedMech == OFC_NULL) 
+	{
+	  result = SASL_NOMEM ;
+	}
+      else
+	{
+	  result = der_get_oid(text->mech_oid->elements,
+			       text->mech_oid->length,
+			       resp.supportedMech,
+			       OFC_NULL);
+	}
     }
 
   if (result == SASL_OK)
@@ -2633,6 +2688,21 @@ static OFC_INT spnego_xreply(server_context_t *text,
 
   ofc_memset (&resp, 0, sizeof(resp)) ;
 
+  if (output_token != OFC_NULL && output_token->length != 0U)
+    {
+      resp.responseToken =
+	ofc_malloc (sizeof(*resp.responseToken)) ;
+      if (resp.responseToken == OFC_NULL)
+	{
+	  result = SASL_NOMEM ;
+	}
+      else
+	{
+	  resp.responseToken->length = output_token->length ;
+	  resp.responseToken->data = output_token->value ;
+	}
+    }
+
   resp.negState = ofc_malloc (sizeof(*resp.negState)) ;
   if (resp.negState == OFC_NULL)
     {
@@ -2641,7 +2711,10 @@ static OFC_INT spnego_xreply(server_context_t *text,
   else
     {
       *(resp.negState) = accept_incomplete;
-
+    }
+ 
+  if (result == SASL_OK)
+    {
       resp.supportedMech = 
 	ofc_malloc(sizeof(*resp.supportedMech));
       if (resp.supportedMech == OFC_NULL) 
@@ -2650,96 +2723,83 @@ static OFC_INT spnego_xreply(server_context_t *text,
 	}
       else
 	{
-	  result = der_get_oid(gss_mech_ntlmssp_oid.elements,
-			       gss_mech_ntlmssp_oid.length,
+	  result = der_get_oid(text->mech_oid->elements,
+			       text->mech_oid->length,
 			       resp.supportedMech,
 			       OFC_NULL);
-	  if (result == SASL_OK) 
+        }
+    }
+
+  if (result == SASL_OK)
+    {
+      buf_size = 1024 ;
+      buf = ofc_malloc(buf_size) ;
+
+      do
+        {
+          OFC_INT nested_result ;
+
+          nested_result =
+            encode_NegTokenResp(buf + buf_size - 1,
+                                buf_size,
+                                &resp, &len) ;
+
+	  if (nested_result != SASL_OK)
+	    result = nested_result ;
+	  else
 	    {
-	      if (output_token != OFC_NULL && output_token->length != 0U)
+	      OFC_SIZET tmp;
+
+	      nested_result =
+		der_put_length_and_tag(buf + buf_size - 
+				       len - 1,
+				       buf_size - len,
+				       len,
+				       ASN1_C_CONTEXT,
+				       CONS,
+				       1,
+				       &tmp);
+	      if (nested_result != SASL_OK)
+		result = nested_result ;
+	      else
+		len += tmp;
+	    }
+
+	  if (result != SASL_OK && result != SASL_CONTINUE) 
+	    {
+	      if (result == SASL_BUFOVER)
 		{
-		  resp.responseToken =
-		    ofc_malloc (sizeof(*resp.responseToken)) ;
-		  if (resp.responseToken == OFC_NULL)
+		  OFC_UCHAR *tmp;
+
+		  buf_size *= 2;
+		  tmp = ofc_realloc(buf, buf_size);
+		  if (tmp == OFC_NULL) 
 		    {
 		      result = SASL_NOMEM ;
 		    }
 		  else
 		    {
-		      resp.responseToken->length = output_token->length ;
-		      resp.responseToken->data = output_token->value ;
-
-		      buf_size = 1024 ;
-		      buf = ofc_malloc(buf_size) ;
-
-		      do
-			{
-			  OFC_INT nested_result ;
-
-			  nested_result =
-			    encode_NegTokenResp(buf + buf_size - 1,
-						buf_size,
-						&resp, &len) ;
-
-			  if (nested_result != SASL_OK)
-			    result = nested_result ;
-			  else
-			    {
-			      OFC_SIZET tmp;
-
-			      nested_result =
-				der_put_length_and_tag(buf + buf_size - 
-						       len - 1,
-						       buf_size - len,
-						       len,
-						       ASN1_C_CONTEXT,
-						       CONS,
-						       1,
-						       &tmp);
-			      if (nested_result != SASL_OK)
-				result = nested_result ;
-			      else
-				len += tmp;
-			    }
-
-			  if (result != SASL_OK && result != SASL_CONTINUE) 
-			    {
-			      if (result == SASL_BUFOVER)
-				{
-				  OFC_UCHAR *tmp;
-
-				  buf_size *= 2;
-				  tmp = ofc_realloc(buf, buf_size);
-				  if (tmp == OFC_NULL) 
-				    {
-				      result = SASL_NOMEM ;
-				    }
-				  else
-				    {
-				      buf = tmp;
-				      result = SASL_OK ;
-				    }
-				}
-			    }
-			}
-		      while (result == SASL_BUFOVER) ;
-
-		      if (result == SASL_OK || result == SASL_CONTINUE)
-			{
-			  OFC_INT nested_result ;
-			  nested_result = 
-			    gssapi_spnego_encapsulate_len(buf + buf_size - len, 
-							  len,
-							  output_token) ;
-			  if (nested_result != SASL_OK)
-			    result = nested_result ;
-			}
-		      ofc_free (buf) ;
+		      buf = tmp;
+		      result = SASL_OK ;
 		    }
 		}
 	    }
 	}
+      while (result == SASL_BUFOVER) ;
+
+      if (result == SASL_OK || result == SASL_CONTINUE)
+	{
+	  OFC_INT nested_result ;
+	  nested_result = 
+	    gssapi_spnego_encapsulate_len(buf + buf_size - len, 
+					  len,
+					  output_token) ;
+	  if (nested_result != SASL_OK)
+	    result = nested_result ;
+	}
+      ofc_free (buf) ;
     }
+
   free_NegTokenResp(&resp) ;
   return (result) ;
 }
@@ -3228,6 +3288,7 @@ static OFC_INT spnego_server_init(server_context_t *text,
 
   ofc_memset (&token_init, 0, sizeof(token_init)) ;
 
+  result = add_mech(&token_init.mechTypes, &gss_mech_krb5_oid) ;
   result = add_mech(&token_init.mechTypes, &gss_mech_ntlmssp_oid) ;
 
   if (result == SASL_OK)
@@ -3388,7 +3449,26 @@ static OFC_INT gssapi_server_mech_step(OFC_VOID *conn_context,
 				output_token,
 				&out_req_flags) ;
 
-	  if ((result == SASL_OK) || (result == SASL_CONTINUE))
+	  if (result == SASL_OK)
+	    {
+	      OFC_INT nested_result ;
+
+	      text->user = ofc_strdup (text->pconn->oparams.user) ;
+	      text->authid = ofc_strdup (text->pconn->oparams.authid) ;
+	      oparams->user = text->user ;
+	      oparams->authid = text->authid ;
+
+	      if (text->use_spnego)
+		{
+		  nested_result = spnego_sreply (text, input_token,
+						 output_token,
+						 &out_req_flags) ;
+		  if (nested_result != SASL_OK)
+		    result = nested_result ;
+		}
+	    }
+	      
+	  if (result == SASL_CONTINUE)
 	    {
 	      OFC_INT nested_result ;
 
@@ -3543,7 +3623,7 @@ gssapi_server_mech_key(void *conn_context,
     {
       if (of_security_server_key(text->pconn, session_key) == SASL_OK)
 	{
-	  ret = OFC_TRUE ;
+	  ret = SASL_OK;
 	}
     }
 
@@ -4294,7 +4374,7 @@ static int gssapi_client_mech_key(void *conn_context,
     {
       if (of_security_client_key(text->pconn, session_key) == SASL_OK)
 	{
-	  ret = OFC_TRUE ;
+	  ret = SASL_OK;
 	}
     }
 

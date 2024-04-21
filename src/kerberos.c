@@ -57,6 +57,7 @@
 #endif
 
 #include "ofc/config.h"
+#include "ofc/libc.h"
 #include "of_security/saslint.h"
 #include "of_security/sasl.h"
 #include "of_security/saslplug.h"
@@ -666,6 +667,11 @@ gss_OID GSS_C_SEC_CONTEXT_SASL_SSF = &gss_sasl_ssf;
 #endif
 #endif
 
+gss_OID_desc gse_sesskey_inq_oid = {
+  11, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x05"
+};
+gss_OID GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY = &gse_sesskey_inq_oid;
+
 static int gssapi_get_ssf(context_t *text, sasl_ssf_t *mech_ssf)
 {
 #ifdef HAVE_GSS_INQUIRE_SEC_CONTEXT_BY_OID
@@ -789,6 +795,8 @@ gssapi_server_mech_new(void *glob_context,
     return SASL_OK;
 }
 
+#define PRINC "cifs/spiritux.doubledoubleu.com@DOUBLEDOUBLEU.COM"
+
 static int 
 gssapi_server_mech_authneg(context_t *text,
 			   sasl_server_params_t *params,
@@ -821,21 +829,34 @@ gssapi_server_mech_authneg(context_t *text,
 	    sasl_gss_free_context_contents(text);
 	    return SASL_FAIL;
 	}
+#if 0
 	name_token.length = ofc_strlen(params->service) + 1 + ofc_strlen(params->serverFQDN);
+#else
+        name_token.length = ofc_strlen(PRINC);
+#endif
 	name_token.value = (char *)params->utils->malloc((name_token.length + 1) * sizeof(char));
 	if (name_token.value == NULL) {
 	    MEMERROR(params->utils->conn);
 #if 0
 	    sasl_gss_free_context_contents(text);
-	    return SASL_NOMEM;
 #endif
+	    return SASL_NOMEM;
 	}
-	sprintf(name_token.value,"%s@%s", params->service, params->serverFQDN);
+
+#if 0
+#if 1
+	sprintf(name_token.value,"%s/%s", params->service, params->serverFQDN);
+#else
+	sprintf(name_token.value,"%s/%s", "host", params->serverFQDN);
+#endif
+#else
+        strcpy(name_token.value, PRINC);
+#endif
 
 	GSS_LOCK_MUTEX_CTX(params->utils, text);
 	maj_stat = gss_import_name (&min_stat,
 				    &name_token,
-				    GSS_C_NT_HOSTBASED_SERVICE,
+				    (gss_OID) GSS_C_NO_OID,
 				    &text->server_name);
 	GSS_UNLOCK_MUTEX_CTX(params->utils, text);
 
@@ -855,13 +876,18 @@ gssapi_server_mech_authneg(context_t *text,
 	    text->server_creds = GSS_C_NO_CREDENTIAL;
 	}
 
+        if (krb5_gss_register_acceptor_identity("/home/ubuntu/git/smbcp/spiritux.keytab"))
+          {
+            ofc_log(OFC_LOG_WARN, "Failed to register keytab\n");
+          }
+
 	/* If caller didn't provide creds already */
 	if ( server_creds == GSS_C_NO_CREDENTIAL) {
 	    GSS_LOCK_MUTEX_CTX(params->utils, text);
 	    maj_stat = gss_acquire_cred(&min_stat, 
 					text->server_name,
 					GSS_C_INDEFINITE, 
-					GSS_C_NO_OID_SET,
+                                        GSS_C_NO_OID_SET,
 					GSS_C_ACCEPT,
 					&text->server_creds, 
 					NULL, 
@@ -883,6 +909,10 @@ gssapi_server_mech_authneg(context_t *text,
     }
 
 
+    /*
+     * This is where we're at.  Doesn't work yet.
+     * ktpass /princ host/spiritux.doubledoubleu.com@DOUBLEDOUBLEU.COM /mapuser spiritcloud@DOUBLEDOUBLEU.COM /pass Hamilton50Texas /out spiritux.keytab /crypto all /ptype KRB5_NT_PRINCIPAL /mapop set /kvno 5 /kvno 1 /crypto all
+     */
     GSS_LOCK_MUTEX_CTX(params->utils, text);
     maj_stat =
 	gss_accept_sec_context(&min_stat,
@@ -915,8 +945,11 @@ gssapi_server_mech_authneg(context_t *text,
     }
     if (output_token->value) {
 	if (serverout) {
-	    ret = of_security_plug_buf_alloc(text->utils, &(text->out_buf),
-				  &(text->out_buf_len), *serveroutlen);
+	    ret =
+	      of_security_plug_buf_alloc(text->utils,
+					 &(text->out_buf),
+					 &(text->out_buf_len),
+					 (*serveroutlen));
 	    if(ret != SASL_OK) {
 		GSS_LOCK_MUTEX_CTX(params->utils, text);
 		gss_release_buffer(&min_stat, output_token);
@@ -988,6 +1021,7 @@ gssapi_server_mech_authneg(context_t *text,
     }
 
     name_token.value = NULL;
+    name_token.length = 0;
     name_without_realm.value = NULL;
 
     GSS_LOCK_MUTEX_CTX(params->utils, text);
@@ -1011,7 +1045,8 @@ gssapi_server_mech_authneg(context_t *text,
     if (ofc_strchr((char *) name_token.value, (int) '@') != NULL) {
 	/* NOTE: libc malloc, as it is freed below by a gssapi internal
 	 *       function! */
-	name_without_realm.value = params->utils->malloc(ofc_strlen(name_token.value)+1);
+        name_without_realm.value =
+	  params->utils->malloc(ofc_strlen(name_token.value)+1);
 	if (name_without_realm.value == NULL) {
 	    MEMERROR(params->utils->conn);
 	    ret = SASL_NOMEM;
@@ -1064,9 +1099,9 @@ gssapi_server_mech_authneg(context_t *text,
     }
 
     if (equal) {
-	text->authid = strdup(name_without_realm.value);
+	text->authid = ofc_strdup(name_without_realm.value);
     } else {
-	text->authid = strdup(name_token.value);
+	text->authid = ofc_strdup(name_token.value);
     }
 
     if (text->authid == NULL) {
@@ -1079,11 +1114,11 @@ gssapi_server_mech_authneg(context_t *text,
     ret = SASL_OK;
 
     /* Release server creds which are no longer needed */
-     if ( text->server_creds != GSS_C_NO_CREDENTIAL)
-       {
-	 maj_stat = gss_release_cred(&min_stat, &text->server_creds);
-        text->server_creds = GSS_C_NO_CREDENTIAL;
-       }
+    if ( text->server_creds != GSS_C_NO_CREDENTIAL)
+      {
+	maj_stat = gss_release_cred(&min_stat, &text->server_creds);
+	text->server_creds = GSS_C_NO_CREDENTIAL;
+      }
 
   cleanup:
     if (text->server_creds != GSS_C_NO_CREDENTIAL) {
@@ -1467,10 +1502,34 @@ gssapi_server_mech_step(void *conn_context,
     return ret;
 }
 
+static int gssapi_server_mech_key(void *conn_context,
+				  unsigned char session_key[MD5_DIGEST_LENGTH])
+{
+  OM_uint32 maj_stat = 0, min_stat = 0;
+  gss_buffer_set_t set = GSS_C_NO_BUFFER_SET;
+  context_t *text = (context_t *)conn_context;
+
+  maj_stat = gss_inquire_sec_context_by_oid(&min_stat, 
+					    text->gss_ctx,
+					    GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY,
+					    &set);
+
+  if (maj_stat) 
+    {
+      sasl_gss_seterror(text->utils, maj_stat, min_stat) ;
+      return SASL_FAIL;
+    }
+
+  ofc_memcpy (session_key, set->elements[0].value, OFC_MIN(set->elements[0].length, NTLM_SESSKEY_LENGTH)) ;
+
+  maj_stat = gss_release_buffer_set(&min_stat, &set);
+  return SASL_OK;
+}
+
 static sasl_server_plug_t kerberos_server_plugins[] = 
 {
     {
-	"GSSAPI",			/* mech_name */
+	"KERBEROS",			/* mech_name */
 	K5_MAX_SSF,			/* max_ssf */
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOACTIVE
@@ -1489,7 +1548,7 @@ static sasl_server_plug_t kerberos_server_plugins[] =
 	NULL,				/* user_query */
 	NULL,				/* idle */
 	NULL,				/* mech_avail */
-	NULL				/* spare */
+	&gssapi_server_mech_key		/* server key */
     }
 };
 
@@ -1992,6 +2051,7 @@ static int gssapi_client_mech_step(void *conn_context,
 		GSS_UNLOCK_MUTEX_CTX(params->utils, text);
 	    }
 	    sasl_gss_free_context_contents(text);
+
 	    return SASL_FAIL;
 	}
 
@@ -2091,12 +2151,15 @@ static int gssapi_client_mech_step(void *conn_context,
 	    gss_release_buffer(&min_stat, &name_token);
 	    GSS_UNLOCK_MUTEX_CTX(params->utils, text);
 	    
-	    if (ret != SASL_OK) return ret;
+	    if (ret != SASL_OK) {
+	      return ret;
+	    }
 	    
 	    if (text->http_mode) {
 		/* HTTP doesn't do any ssf negotiation */
 		text->state = SASL_GSSAPI_STATE_AUTHENTICATED;
 		oparams->doneflag = 1;
+
 		return SASL_OK;
 	    } else if (text->mech_type && text->mech_type == &gss_spnego_oid) {
 		oparams->doneflag = 1;
@@ -2370,11 +2433,6 @@ static int gssapi_client_mech_step(void *conn_context,
 }
 
 
-gss_OID_desc gse_sesskey_inq_oid = {
-  11, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x05"
-};
-gss_OID GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY = &gse_sesskey_inq_oid;
-
 static int gssapi_client_mech_name(void *conn_context,
 				   OFC_TCHAR *name, size_t name_len)
 {
@@ -2390,11 +2448,7 @@ static int gssapi_client_mech_key(void *conn_context,
 
   maj_stat = gss_inquire_sec_context_by_oid(&min_stat, 
 					    text->gss_ctx,
-#if 1
 					    GSS_C_SEC_CONTEXT_SSPI_SESSION_KEY,
-#else
-					    GSS_C_INQ_SSPI_SESSION_KEY,
-#endif
 					    &set);
 
   if (maj_stat) 
@@ -2402,7 +2456,6 @@ static int gssapi_client_mech_key(void *conn_context,
       sasl_gss_seterror(text->utils, maj_stat, min_stat) ;
       return SASL_FAIL;
     }
-
 
   ofc_memcpy (session_key, set->elements[0].value, OFC_MIN(set->elements[0].length, NTLM_SESSKEY_LENGTH)) ;
 
