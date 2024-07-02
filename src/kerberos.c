@@ -210,6 +210,9 @@ sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
     const char prefix[] = "GSSAPI Error: ";
 
     if (!utils) return SASL_OK;
+
+    /* Don't report Server Not Found */
+    if (maj == 0x000d0000 && min==0x96c73a07) return SASL_OK;
     
     len = sizeof(prefix);
     ret = of_security_plug_buf_alloc(utils, &out, &curlen, 256);

@@ -44,10 +44,38 @@
 #include <ofc/file.h>
 #include <ofc/libc.h>
 #include <ofc/heap.h>
+#include <of_smb/framework.h>
 
 static krb5_boolean is_local_tgt(krb5_principal princ, krb5_data *realm);
 static int check_ccache(krb5_context context, krb5_ccache cache,
                         krb5_timestamp *exp);
+
+#if defined(__ANDROID__) && defined(OPENFILES_SMB_JNI)
+#include <dlfcn.h>
+
+typedef OFC_VOID (*CallOnServerFunc)(int event, OFC_CCHAR *message);
+
+static OFC_VOID call_on_server_event(int event, OFC_CCHAR *message)
+{
+  OFC_HANDLE hEvent;
+  
+  static CallOnServerFunc on_server_function = OFC_NULL;
+
+  if (on_server_function == OFC_NULL)
+    {
+      /*
+       * Bind to the function
+       */
+      on_server_function =
+        (CallOnServerFunc) dlsym(RTLD_DEFAULT,
+                                 "callOnServerEvent");
+    }
+  if (on_server_function != OFC_NULL)
+    {
+      on_server_function(event, message);
+    }
+}
+#endif
 
 #if 0
 void list_all_ccaches(void);
@@ -195,6 +223,10 @@ int kinit(const char *principal, const char *password)
                           ofc_log(OFC_LOG_WARN,
                                   "Unable to Authenticate: %s\n",
                                   error_msg);
+#if defined(__ANDROID__) && defined(OPENFILES_SMB_JNI)
+                          call_on_server_event(SERVER_EVENT_INFO,
+                                               error_msg);
+#endif
                           krb5_free_error_message(ctx, error_msg);
                         }
                       else
