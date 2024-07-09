@@ -88,8 +88,10 @@ mbedtls_smb2_signing_ctx(OFC_UCHAR *session_key,
   mbedtls_md_hmac_starts(&mbedtls_ctx, (const unsigned char *) session_key,
                          session_key_len);
 
+#if defined(MAYBE)
   mbedtls_md_hmac_update(&mbedtls_ctx, (const unsigned char *) &one,
                          sizeof(one));
+#endif
   mbedtls_md_hmac_update(&mbedtls_ctx, 
                          (const unsigned char *) label, label_size);
   mbedtls_md_hmac_update(&mbedtls_ctx, 

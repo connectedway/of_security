@@ -59,9 +59,11 @@ gnutls_smb2_signing_ctx(OFC_UCHAR *session_key,
                         GNUTLS_MAC_SHA256,
                         session_key,
                         session_key_len);
+#if defined(MAYBE)
   rc = gnutls_hmac(hmac_hnd, 
                    (const unsigned char *) &one,
                    sizeof(one));
+#endif
   rc = gnutls_hmac(hmac_hnd,
                    (const unsigned char *) label,
                    label_size);
@@ -84,10 +86,12 @@ gnutls_smb2_signing_ctx(OFC_UCHAR *session_key,
   of_security_print_key("gnutls Signing Key: ", signing_ctx->key);
 #endif
 
+#if 0
   gnutls_hmac_init(&hmac_hnd,
                    GNUTLS_MAC_AES_CMAC_128,
                    signing_ctx->key,
                    signing_ctx->keylen);
+#endif
   signing_ctx->impl_signing_ctx = hmac_hnd;
 
   return (signing_ctx);
@@ -104,6 +108,13 @@ gnutls_smb2_sign_vector(struct of_security_signing_ctx *signing_ctx,
   OFC_UINT8 mac[gnutls_hash_get_len(GNUTLS_MAC_AES_CMAC_128)];
   int i;
 
+#if 1
+  gnutls_hmac_init(&hmac_hnd,
+                   GNUTLS_MAC_AES_CMAC_128,
+                   signing_ctx->key,
+                   signing_ctx->keylen);
+#endif
+  
   for (i = 0 ; i < num_elem; i++)
     {
       gnutls_hmac(hmac_hnd,
@@ -123,6 +134,13 @@ OFC_VOID gnutls_smb2_sign(struct of_security_signing_ctx *signing_ctx,
 {
   gnutls_hmac_hd_t hmac_hnd = signing_ctx->impl_signing_ctx;
   OFC_UINT8 mac[gnutls_hash_get_len(GNUTLS_MAC_AES_CMAC_128)];
+
+#if 1
+  gnutls_hmac_init(&hmac_hnd,
+                   GNUTLS_MAC_AES_CMAC_128,
+                   signing_ctx->key,
+                   signing_ctx->keylen);
+#endif
 
   gnutls_hmac(hmac_hnd,
               ptext, ptext_size);

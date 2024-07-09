@@ -77,7 +77,9 @@ openssl_smb2_signing_ctx(OFC_UCHAR *session_key,
   params[1] = OSSL_PARAM_construct_end();
   
   EVP_MAC_init(macctx, session_key, session_key_len, params);
+#if defined(MAYBE)
   EVP_MAC_update(macctx, (const unsigned char *) &one, sizeof(one));
+#endif
   EVP_MAC_update(macctx, (const unsigned char *) label, label_size);
   EVP_MAC_update(macctx, (const unsigned char *) &zero, 1);
   EVP_MAC_update(macctx, (const unsigned char *) context, context_size);

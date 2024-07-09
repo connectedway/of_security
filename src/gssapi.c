@@ -2544,6 +2544,13 @@ static OFC_INT spnego_sreply(server_context_t *text,
       *(resp.negState) = accept_completed;
     }
 
+#if 0
+  mic = ofc_malloc(16);
+  of_security_mech_lit_mic(text->pconn, 
+  *(resp.mechListMIC) = ofc_malloc(sizeof(struct octet_string));
+  *(resp.mechListMIC)->data = mic
+#endif    
+
   if (result == SASL_OK)
     {
       buf_size = 1024 ;
