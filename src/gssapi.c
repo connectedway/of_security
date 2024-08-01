@@ -24,6 +24,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+#define OFC_PARAM_SPNEGO_MECHLISTMIC
 /* 
  * GSSAPI/SPNEGO SASL plugin
  */
@@ -2504,6 +2505,8 @@ static OFC_INT spnego_init(server_context_t *text,
   return (result) ;
 }
 
+static OFC_INT add_mech(MechTypeList * mech_list, const oid *mech);
+
 static OFC_INT spnego_sreply(server_context_t *text,
 			      const gss_buffer_t input_token,
 			      gss_buffer_t output_token,
@@ -2518,6 +2521,39 @@ static OFC_INT spnego_sreply(server_context_t *text,
   result = SASL_OK ;
 
   ofc_memset (&resp, 0, sizeof(resp)) ;
+
+#if defined(OFC_PARAM_SPNEGO_MECHLISTMIC)
+  MechTypeList mechTypes;
+  OFC_UCHAR * bufx ;
+  OFC_UCHAR * px ;
+  OFC_SIZET lenx ;
+  OFC_SIZET lx ;
+  OFC_UCHAR *mic ;
+
+  ofc_memset (&mechTypes, '\0', sizeof (MechTypeList)) ;
+  mechTypes.len = 0 ;
+  mechTypes.val = OFC_NULL ;
+  add_mech(&mechTypes, &gss_mech_ntlmssp_oid) ;
+
+  bufx = ofc_malloc(1024) ;
+  px = bufx + 1024 - 1 ;
+  lenx = 1024 ;
+  encode_MechTypeList(px, lenx, &mechTypes, &lx);
+  px -= lx ;
+  lenx -= lx ;
+  px++ ;
+
+  free_MechTypeList(&mechTypes);
+
+  mic = ofc_malloc(16) ;
+  of_security_server_mech_list_mic(text->pconn, px, lx, mic) ;
+  resp.mechListMIC = 
+    ofc_malloc(sizeof(struct octet_string));
+  resp.mechListMIC->data = mic ;
+  resp.mechListMIC->length = 16 ;
+
+  ofc_free (bufx) ;
+#endif
 
   if (output_token != OFC_NULL && output_token->length != 0U)
     {
@@ -3569,7 +3605,8 @@ static sasl_server_plug_t gssapi_server_plugins[] =
 	OFC_NULL,			/* mech_user_query */
 	OFC_NULL,			/* mech_idle */
 	OFC_NULL,			/* mech_avail */
-	&gssapi_server_mech_key		/* mech_session_key */
+	&gssapi_server_mech_key,	/* mech_session_key */
+        OFC_NULL                        /* mechlistmic */
     }
 };
 

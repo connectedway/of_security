@@ -1330,6 +1330,10 @@ LIBSASL_API int of_security_decode(sasl_conn_t *conn,
 				 const char *input, unsigned inputlen,
 				 const char **output, unsigned *outputlen);
 
+LIBSASL_API int of_security_server_mech_list_mic(sasl_conn_t *conn,
+					const OFC_UCHAR *mechlist, 
+					OFC_SIZET length,
+					unsigned char mic[SASL_KEY_LENGTH]) ;
 #ifdef __cplusplus
 }
 #endif

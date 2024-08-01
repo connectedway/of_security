@@ -138,7 +138,8 @@ enum {
     NTLM_NEGOTIATE_VERSION      = 0x02000000,
     NTLM_NEGOTIATE_128          = 0x20000000,
     NTLM_NEGOTIATE_KEY_EXCH     = 0x40000000,
-    NTLM_FLAGS_MASK		= 0x6288ffdf
+    NTLM_FLAGS_MASK             = 0x62898215
+    /* NTLM_FLAGS_MASK		= 0x6288ffdf */
 };
 
 enum {
@@ -182,15 +183,21 @@ enum {
     NTLM_VERSION_MAJOR_OFFSET   = 0,
     NTLM_VERSION_MINOR_OFFSET   = 1,
     NTLM_VERSION_BUILD_OFFSET   = 2,
-    NTLM_VERSION_REV_OFFSET     = 4,
+    NTLM_VERSION_REV_OFFSET     = 7,
     NTLM_VERSION_SIZE           = 8
 };
 
+#if 0
 #define NTLM_VERSION_MAJOR 6
 #define NTLM_VERSION_MINOR 1
 #define NTLM_VERSION_BUILD 0
 #define NTLM_VERSION_REV 15
-
+#else
+#define NTLM_VERSION_MAJOR 10
+#define NTLM_VERSION_MINOR 0
+#define NTLM_VERSION_BUILD 20348
+#define NTLM_VERSION_REV 15
+#endif
 #define ATTR_TYPE 0
 #define ATTR_LEN 2
 #define ATTR_DATA 4  
@@ -644,6 +651,8 @@ typedef struct server_context {
     struct arcfour_state send_seal_state;
     unsigned char session_key[NTLM_SESSKEY_LENGTH] ;
     struct ntlm_credentials *credentials ;
+    OFC_UINT32 send_seqnum ;
+    OFC_UINT32 recv_seqnum ;
 } server_context_t;
 
 /*
@@ -699,7 +708,11 @@ static int create_challenge(const sasl_utils_t *utils,
       *(base + NTLM_TYPE2_VERSION_OFFSET + NTLM_VERSION_MAJOR_OFFSET) = NTLM_VERSION_MAJOR ;
       *(base + NTLM_TYPE2_VERSION_OFFSET + NTLM_VERSION_MINOR_OFFSET) = NTLM_VERSION_MINOR ;
       htois(base + NTLM_TYPE2_VERSION_OFFSET + NTLM_VERSION_BUILD_OFFSET, NTLM_VERSION_BUILD) ;
+#if 0
       htoil(base + NTLM_TYPE2_VERSION_OFFSET + NTLM_VERSION_REV_OFFSET, NTLM_VERSION_REV) ;
+#else
+      *(base + NTLM_TYPE2_VERSION_OFFSET + NTLM_VERSION_REV_OFFSET) = NTLM_VERSION_REV ;
+#endif
     }
 
     return SASL_OK;
@@ -791,8 +804,9 @@ static int ntlm_server_mech_step1(server_context_t *text,
     target_info_length = 
       ATTR_DATA + 2*netbios_name_len +  /* netbios domain */
       ATTR_DATA + 2*netbios_name_len +  /* netbios computer */
-      ATTR_DATA + 2 +			/* dns domain */
+      ATTR_DATA + 2*netbios_name_len +	/* dns domain */
       ATTR_DATA + 2*netbios_name_len +   /* dns computer */
+      ATTR_DATA + 2 +                    /* dns tree */
       ATTR_DATA + sizeof (timestamp) +	 /* timestamp */
       ATTR_DATA ;			 /* end of list */
 
@@ -809,15 +823,29 @@ static int ntlm_server_mech_step1(server_context_t *text,
     htoit (ptargetinfo + ATTR_DATA, sparams->netbios_name, (int) netbios_name_len) ;
     ptargetinfo += ATTR_DATA + 2*netbios_name_len ;
 
+#if 0
     htois (ptargetinfo + ATTR_TYPE, 4) ;
     htois (ptargetinfo + ATTR_LEN, 2) ;
     htoit (ptargetinfo + ATTR_DATA, TSTR(""), 1) ;
     ptargetinfo += ATTR_DATA + 2 ;
+#else
+    htois (ptargetinfo + ATTR_TYPE, 4) ;
+    htois (ptargetinfo + ATTR_LEN, (int) 2*netbios_name_len) ;
+    htoit (ptargetinfo + ATTR_DATA, sparams->netbios_name, (int) netbios_name_len) ;
+    ptargetinfo += ATTR_DATA + 2*netbios_name_len ;
+#endif
 
     htois (ptargetinfo + ATTR_TYPE, 3) ;
     htois (ptargetinfo + ATTR_LEN, 2*netbios_name_len) ;
     htoit (ptargetinfo + ATTR_DATA, sparams->netbios_name, (int) netbios_name_len) ;
     ptargetinfo += ATTR_DATA + 2*netbios_name_len ;
+
+    /**/
+    htois (ptargetinfo + ATTR_TYPE, 5) ;
+    htois (ptargetinfo + ATTR_LEN, 2) ;
+    htoit (ptargetinfo + ATTR_DATA, TSTR(""), 1) ;
+    ptargetinfo += ATTR_DATA + 2 ;
+    /**/
 
     htois (ptargetinfo + ATTR_TYPE, 7) ;
     htois (ptargetinfo + ATTR_LEN, sizeof(timestamp)) ;
@@ -1012,7 +1040,7 @@ OFC_VOID ntlm_server_sign_init (server_context_t *text)
   OFC_DATA_BLOB key ;
   MD5_CTX ctx ;
 
-#if 0
+#if 1
   credentials = text->credentials ;
 
   of_security_MD5Init (&ctx) ;
@@ -1398,6 +1426,34 @@ static int ntlm_server_mech_key(void *conn_context,
     return (SASL_OK) ;
 }
 
+static int ntlm_server_mechlistmic(void *conn_context,
+				   const OFC_UCHAR *mechlist, 
+				   OFC_SIZET length,
+				   unsigned char mic[NTLM_SESSKEY_LENGTH])
+{
+    server_context_t *text = (server_context_t *) conn_context;
+    HMAC_MD5_CTX ctx ;
+    OFC_UCHAR seqnum[4] ;
+    OFC_UCHAR digest[16] ;
+
+    text->send_seqnum = 0;
+    OFC_NET_LTOSMB (&seqnum[0], 0, text->send_seqnum);
+    text->send_seqnum++ ;
+
+    of_security_hmac_md5_init (&ctx, text->send_key, NTLM_SESSKEY_LENGTH) ;
+    of_security_hmac_md5_update(&ctx, (const OFC_UCHAR *)&seqnum[0], 4) ;
+    of_security_hmac_md5_update(&ctx, (const OFC_UCHAR *)mechlist, length) ;
+    of_security_hmac_md5_final(digest,&ctx);
+
+    arcfour_crypt_sbox(&text->send_seal_state, digest, 8) ;
+
+    OFC_NET_LTOSMB (&mic[0], 0, NTLMSSP_SIGN_VERSION) ;
+    ofc_memcpy (&mic[4], &digest[0], 8) ;
+    ofc_memcpy (&mic[12], &seqnum[0], 4) ;
+
+    return (SASL_OK) ;
+}
+
 static sasl_server_plug_t ntlm_server_plugins[] = 
 {
     {
@@ -1416,7 +1472,8 @@ static sasl_server_plug_t ntlm_server_plugins[] =
 	OFC_NULL,			/* mech_user_query */
 	OFC_NULL,			/* mech_idle */
 	OFC_NULL,			/* mech_avail */
-	&ntlm_server_mech_key		/* mech_session_key */
+	&ntlm_server_mech_key,		/* mech_session_key */
+	&ntlm_server_mechlistmic        /* mechlistmic */
     }
 };
 
@@ -1495,7 +1552,11 @@ static int create_request(const sasl_utils_t *utils,
     ofc_memcpy(base + NTLM_SIG_OFFSET, NTLM_SIGNATURE, sizeof(NTLM_SIGNATURE));
     htoil(base + NTLM_TYPE_OFFSET, NTLM_TYPE_REQUEST);
     htoil(base + NTLM_TYPE1_FLAGS_OFFSET, flags);
+#if 0
     ofc_memcpy(base + NTLM_TYPE1_VERSION_OFFSET, "\x06\x01\x00\x00\x00\x00\x00\x0f", 8) ;
+#else
+    ofc_memcpy(base + NTLM_TYPE3_VERSION_OFFSET, "\x0A\x001\x7c\x4f\x00\x00\x00\x0f", 8) ;
+#endif    
     load_buffer(base + NTLM_TYPE1_DOMAIN_OFFSET,
 		(unsigned char *) domain, (uint16) ofc_strlen(domain), 0, base, &offset);
     load_buffer(base + NTLM_TYPE1_WORKSTN_OFFSET,
@@ -1564,7 +1625,11 @@ static int create_response(const sasl_utils_t *utils,
     load_buffer(base + NTLM_TYPE3_SESSIONKEY_OFFSET,
 		key, key ? NTLM_SESSKEY_LENGTH : 0, 0, base, &offset);
     htoil(base + NTLM_TYPE3_FLAGS_OFFSET, flags);
+#if 0
     ofc_memcpy(base + NTLM_TYPE3_VERSION_OFFSET, "\x06\x01\x00\x00\x00\x00\x00\x0f", 8) ;
+#else
+    ofc_memcpy(base + NTLM_TYPE3_VERSION_OFFSET, "\x0A\x001\x7c\x4f\x00\x00\x00\x0f", 8) ;
+#endif
 
     return SASL_OK;
 }

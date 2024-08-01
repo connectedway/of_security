@@ -771,6 +771,10 @@ typedef struct sasl_server_plug {
     /* for additions which don't require a version upgrade; set to 0 */
     int (*mech_session_key)(void *conn_context, 
 			    unsigned char session_key[MD5_DIGEST_LENGTH]);
+    int (*mech_mech_list_mic)(void *conn_context,
+			      const OFC_UCHAR *mechlist, 
+			      OFC_SIZET length,
+			      unsigned char mic[MD5_DIGEST_LENGTH]) ;
 } sasl_server_plug_t;
 
 #define SASL_SERVER_PLUG_VERSION 4

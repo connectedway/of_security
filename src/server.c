@@ -2141,3 +2141,27 @@ const char *of_security_server_get_user(sasl_conn_t *pconn)
 {
   return (pconn->oparams.authid) ;
 }
+
+int of_security_server_mech_list_mic(sasl_conn_t *conn,
+                                    const OFC_UCHAR *mechlist, 
+                                    OFC_SIZET length,
+                                    unsigned char mic[SASL_KEY_LENGTH])
+{
+  sasl_server_conn_t *s_conn = (sasl_server_conn_t *) conn;
+  int result;
+
+  if (_sasl_server_active == 0) return SASL_NOTINIT;
+  if (!conn) return SASL_BADPARAM;
+
+  /* obtain the key */
+  if (s_conn->mech->m.plug->mech_mech_list_mic != NULL)
+    result = s_conn->mech->m.plug->mech_mech_list_mic(conn->context,
+						      mechlist,
+						      length,
+						      mic) ;
+  else
+    result = SASL_FAIL ;
+
+  RETURN(conn,result);
+}
+

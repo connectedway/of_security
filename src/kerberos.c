@@ -1492,7 +1492,8 @@ static sasl_server_plug_t kerberos_server_plugins[] =
 	NULL,				/* user_query */
 	NULL,				/* idle */
 	NULL,				/* mech_avail */
-	NULL				/* spare */
+	NULL,				/* spare */
+        NULL                            /* mechlistmic */
     }
 };
 
