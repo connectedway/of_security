@@ -57,6 +57,7 @@
 #endif
 
 #include "ofc/config.h"
+#include "ofc/framework.h"
 #include "of_security/saslint.h"
 #include "of_security/sasl.h"
 #include "of_security/saslplug.h"
@@ -1919,14 +1920,41 @@ static int gssapi_client_mech_step(void *conn_context,
 		return SASL_FAIL;
 	    }
 
-	    name_token.length = ofc_strlen(params->service) + 1 + ofc_strlen(params->serverFQDN);
-	    name_token.value = (char *)params->utils->malloc((name_token.length + 1) * sizeof(char));
-	    if (name_token.value == NULL) {
-		sasl_gss_free_context_contents(text);
-		return SASL_NOMEM;
-	    }
-	    
-	    sprintf(name_token.value,"%s/%s", params->service, params->serverFQDN);
+            OFC_CCHAR *default_realm;
+            default_realm = ofc_framework_get_realm();
+
+            if (default_realm == OFC_NULL)
+              {
+                name_token.length = ofc_strlen(params->service) + 1 +
+                  ofc_strlen(params->serverFQDN);
+                name_token.value =
+                  (char *)params->utils->malloc((name_token.length + 1) *
+                                                sizeof(char));
+                if (name_token.value == NULL)
+                  {
+                    sasl_gss_free_context_contents(text);
+                    return SASL_NOMEM;
+                  }
+                sprintf(name_token.value,"%s/%s", params->service,
+                        params->serverFQDN);
+              }
+            else
+              {
+                name_token.length = ofc_strlen(params->service) + 1 +
+                  ofc_strlen(params->serverFQDN) + 1 +
+                  ofc_strlen(default_realm);
+                name_token.value =
+                  (char *)params->utils->malloc((name_token.length + 1) *
+                                                sizeof(char));
+                if (name_token.value == NULL)
+                  {
+                    sasl_gss_free_context_contents(text);
+                    return SASL_NOMEM;
+                  }
+                sprintf(name_token.value,"%s/%s@%s", params->service,
+                        params->serverFQDN, default_realm);
+              }
+
 	    GSS_LOCK_MUTEX_CTX(params->utils, text);
 
 	    maj_stat = gss_import_name (&min_stat,
